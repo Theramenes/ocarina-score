@@ -8,7 +8,7 @@ class MidiReader {
 
   take(length) {
     const end = this.offset + length;
-    if (end > this.bytes.length) throw new Error("MIDI 文件不完整。");
+    if (end > this.bytes.length) throw new Error(tr("MIDI 文件不完整。"));
     const slice = this.bytes.subarray(this.offset, end);
     this.offset = end;
     return slice;
@@ -25,7 +25,7 @@ class MidiReader {
       value = value * 128 + (byte & 127);
       if (byte < 128) return value;
     }
-    throw new Error("MIDI 事件的长度无效。");
+    throw new Error(tr("MIDI 事件的长度无效。"));
   }
 
   chunk() {
@@ -60,15 +60,15 @@ function readMidiTrack(reader, track, division, metadata) {
       reader.take(reader.variable());
       continue;
     }
-    if (status < 0x80 || status >= 0xf0) throw new Error("MIDI 文件中有无效事件。");
+    if (status < 0x80 || status >= 0xf0) throw new Error(tr("MIDI 文件中有无效事件。"));
 
     const command = status >> 4;
     const channel = status & 15;
     const pitch = reader.number(1);
-    if (pitch > 127) throw new Error("MIDI 事件的数据无效。");
+    if (pitch > 127) throw new Error(tr("MIDI 事件的数据无效。"));
     if (command === 0xc || command === 0xd) continue;
     const value = reader.number(1);
-    if (value > 127) throw new Error("MIDI 事件的数据无效。");
+    if (value > 127) throw new Error(tr("MIDI 事件的数据无效。"));
     if ((command !== 8 && command !== 9) || channel === 9) continue;
     const key = channel * 128 + pitch;
     if (command === 9 && value) {
@@ -91,21 +91,21 @@ function readMidiTrack(reader, track, division, metadata) {
 function readMidiFile(buffer) {
   const reader = new MidiReader(new Uint8Array(buffer));
   const header = reader.chunk();
-  if (header.type !== "MThd") throw new Error("请选择标准的 MIDI 文件（.mid 或 .midi）。");
+  if (header.type !== "MThd") throw new Error(tr("请选择标准的 MIDI 文件（.mid 或 .midi）。"));
   const format = header.reader.number(2);
   const trackCount = header.reader.number(2);
   const division = header.reader.number(2);
-  if (format > 2 || !trackCount || !division) throw new Error("MIDI 文件头无效。");
-  if (division & 0x8000) throw new Error("此 MIDI 使用 SMPTE 时间码。请导出为按拍计时的 MIDI 后再导入。");
+  if (format > 2 || !trackCount || !division) throw new Error(tr("MIDI 文件头无效。"));
+  if (division & 0x8000) throw new Error(tr("此 MIDI 使用 SMPTE 时间码。请导出为按拍计时的 MIDI 后再导入。"));
   const parts = [];
   const sharedMetadata = [];
   for (let track = 1; track <= trackCount; track++) {
     const { type, reader: trackReader } = reader.chunk();
-    if (type !== "MTrk") throw new Error("MIDI 音轨数据不完整。");
+    if (type !== "MTrk") throw new Error(tr("MIDI 音轨数据不完整。"));
     const metadata = format === 2 ? [] : sharedMetadata;
     for (const part of readMidiTrack(trackReader, track, division, metadata)) parts.push({ ...part, metadata });
   }
-  if (!parts.length) throw new Error("MIDI 文件里没有可以导入的旋律音符。");
+  if (!parts.length) throw new Error(tr("MIDI 文件里没有可以导入的旋律音符。"));
   return { division, parts };
 }
 
@@ -140,7 +140,7 @@ function midiToScore(midi, part) {
   }
   const ordered = [...melody.values()].sort((a, b) => a.start - b.start);
   const barCount = Math.ceil(ordered.at(-1).end / measure);
-  if (barCount > 2048) throw new Error("这条 MIDI 音轨超过 2048 小节，请拆分后导入。");
+  if (barCount > 2048) throw new Error(tr("这条 MIDI 音轨超过 2048 小节，请拆分后导入。"));
   const bars = Array.from({ length: barCount }, () => []);
   const rhythms = [1, 2, 4, 8, 16, 32].flatMap((duration) => [
     { duration, units: 192 / duration, dotted: false, triplet: false },

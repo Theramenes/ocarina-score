@@ -3,6 +3,9 @@
 const $ = (id) => document.getElementById(id);
 const all = (selector) => [...document.querySelectorAll(selector)];
 const icons = {
+  moon: '<path d="M20.8 14.2A9 9 0 0 1 9.8 3.2 9 9 0 1 0 20.8 14.2Z"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19m0-14-1.5 1.5m-11 11L5 19"/>',
+  github: '<path d="M9 19c-4.3 1.3-4.3-2.2-6-2.7M15 22v-3.4c0-1-.3-1.7-.9-2.1 3-.4 5.9-1.5 5.9-6.7 0-1.4-.5-2.5-1.3-3.4.2-.5.5-1.7-.2-3.4 0 0-1.1-.4-3.5 1.3a12 12 0 0 0-6 0C6.6 2.6 5.5 3 5.5 3c-.7 1.7-.4 2.9-.2 3.4A4.8 4.8 0 0 0 4 9.8c0 5.2 2.9 6.3 5.9 6.7-.5.4-.9 1.1-.9 2.1V22"/>',
   ocarina: '<path d="M2.4 12.9c2.5-1.4 7.2-2.6 11.1-2.5l2.6-5.3c.5-1.1 1.4-1.3 2.4-.9l1.3.5c.8.3 1 1 .9 1.9l-.6 5.1c2.4 1.4 3.4 3.6 2.2 6-1.8 3.7-7.1 3.8-12 2.2-3.8-1.2-7.3-3.3-8.4-5.1-.4-.8-.2-1.5.5-1.9Z"/><path d="M13.5 10.4c2.7 0 5 .5 6.6 1.3" stroke-width="1.2"/><g fill="currentColor" stroke="none"><circle cx="6.1" cy="13.8" r=".87"/><circle cx="9.1" cy="13.1" r=".98"/><circle cx="12.2" cy="13" r=".8"/><circle cx="14.3" cy="16.6" r=".95"/><circle cx="17.2" cy="16.9" r="1"/><circle cx="19.9" cy="16.1" r=".84"/></g>',
   music: '<path d="M9 18V5l11-2v13M9 18c0 1.4-1.6 2.5-3.5 2.5S2 19.4 2 18s1.6-2.5 3.5-2.5S9 16.6 9 18Zm11-2c0 1.4-1.6 2.5-3.5 2.5S13 17.4 13 16s1.6-2.5 3.5-2.5S20 14.6 20 16ZM9 9l11-2"/>',
   book: '<path d="M12 5c-3-2-6-2-10-1v15c4-1 7-1 10 1 3-2 6-2 10-1V4c-4-1-7-1-10 1Zm0 0v15"/>',
@@ -170,18 +173,19 @@ function optimizeFingerings() {
   const selection = selectedNotes.size > 1 ? new Set(selectedNotes) : null;
   const changes = planFingerings(score, selection);
   if (!changes.length) {
-    toast(selection ? "选区按法已符合优化规则。" : "当前按法已符合优化规则。");
+    toast(selection ? tr("选区按法已符合优化规则。") : tr("当前按法已符合优化规则。"));
     return;
   }
   updateHistory(() => {
     for (const { note, choice } of changes) rememberFingering(note, choice);
     if (selection) selectedNotes = selection;
   });
-  toast(`${selection ? "选区内" : ""}已优化 ${changes.length} 个音符的按法 · 可撤销`);
+  toast(tr(selection ? "选区内已优化 {count} 个音符的按法 · 可撤销" : "已优化 {count} 个音符的按法 · 可撤销", { count: changes.length }));
 }
 
 function instructions({ dpad, stick }) {
-  return [stick && ("左摇杆 " + (stick > 0 ? "↑" : "↓")), dpad && ("十字键 " + (dpad > 0 ? "↑" : "↓"))].filter(Boolean).join(" + ");
+  return [stick && tr("左摇杆 {direction}", { direction: stick > 0 ? "↑" : "↓" }),
+    dpad && tr("十字键 {direction}", { direction: dpad > 0 ? "↑" : "↓" })].filter(Boolean).join(" + ");
 }
 function modifierGlyph(type, direction, x, y, size = 17) {
   const up = direction > 0;
@@ -206,8 +210,9 @@ function cap({ code, color, ink, stick, dpad }) {
 function newNote(pitch, duration = 4, extras = {}) {
   return { pitch, duration, dotted: false, triplet: false, kind: "note", ...extras };
 }
+const untitledScore = "未命名曲谱";
 function makeScore(id = "score-" + (crypto.randomUUID?.() ?? Date.now())) {
-  return { id, title: "未命名曲谱", author: "", key: "C", bpm: 96, meter: "4/4", bars: [], swing: "straight", loop: "off", loopStart: 0, loopEnd: 0 };
+  return { id, title: untitledScore, author: "", key: "C", bpm: 96, meter: "4/4", bars: [], swing: "straight", loop: "off", loopStart: 0, loopEnd: 0 };
 }
 function normalizeAuthor(value) { return typeof value === "string" ? [...value.trim()].slice(0, 32).join("") : ""; }
 // Nintendo's Switch 2 melody cards give the notes and rhythms. BPM is adjustable.
@@ -257,6 +262,10 @@ const builtInScores = [
   ])
 ];
 const isBuiltIn = (id) => builtInScores.some((item) => item.id === id);
+function scoreTitle(record) {
+  const builtIn = builtInScores.find((item) => item.id === record.id && item.title === record.title);
+  return builtIn || record.title === untitledScore ? tr(record.title) : record.title;
+}
 
 function loadBrowserCopies() {
   try {
@@ -361,8 +370,8 @@ function updateStatus() {
   if (isBuiltIn(score.id)) status = "内置曲谱";
   if (!saved) status = "未保存";
   if (saving) status = "保存中…";
-  $("save-status").textContent = status;
-  $("save-status").title = projectFile ? "曲谱 / " + projectFile.filename : webFile?.filename ?? "";
+  $("save-status").textContent = tr(status);
+  $("save-status").title = projectFile ? tr("曲谱 / {filename}", { filename: projectFile.filename }) : webFile?.filename ?? "";
   $("save-status").classList.toggle("saved", saved && Boolean(projectFile || webFile));
   $("save").disabled = saving;
   $("undo").disabled = !undoStack.length;
@@ -393,10 +402,10 @@ async function requestFolder(path = "", options) {
   try {
     response = await fetch("/api/scores" + path, { cache: "no-store", ...options });
   } catch {
-    throw new Error("无法连接本地曲谱服务。");
+    throw new Error(tr("无法连接本地曲谱服务。"));
   }
   if (!response.headers.get("Content-Type")?.includes("application/json")) {
-    throw new Error("请用项目的本地曲谱服务打开网页。");
+    throw new Error(tr("请用项目的本地曲谱服务打开网页。"));
   }
   const result = await response.json();
   if (!response.ok) throw new Error(result.error);
@@ -432,7 +441,7 @@ async function loadScoreFolder() {
     scoreFiles.push(...records.filter((entry) => !loadedIds.has(entry.score.id)));
     const active = scoreFiles.find((entry) => entry.score.id === activeIdAtLoad);
     if (active && !saving && score === initialScore && JSON.stringify(score) === initialVersion &&
-        $("title").value === score.title && $("author").value === score.author && Number($("bpm").value) === score.bpm) {
+        $("title").value === scoreTitle(score) && $("author").value === score.author && Number($("bpm").value) === score.bpm) {
       applyScore(active.score, true);
     }
     if (view === "library") renderLibrary();
@@ -488,7 +497,7 @@ function parseScoreFile(text) {
       typeof record.title !== "string" || !record.title.trim() || typeof record.key !== "string" || !Object.hasOwn(keySignatures, record.key) ||
       typeof record.meter !== "string" || !Object.hasOwn(meterUnits, record.meter) || !Number.isInteger(record.bpm) || record.bpm < 30 || record.bpm > maxBpm ||
       !Array.isArray(record.bars) || !record.bars.every((bar) => Array.isArray(bar) && bar.every(validScoreNote))) {
-    throw new Error("无效的曲谱数据。");
+    throw new Error(tr("无效的曲谱数据。"));
   }
   const { id, title, key, meter, bpm, bars, swing, loop, loopStart, loopEnd } = record;
   const start = Number.isInteger(loopStart) ? Math.max(0, loopStart) : 0;
@@ -505,14 +514,14 @@ function parseScoreFile(text) {
 
 async function saveBrowserFile(record, { allowDownload = true, existingName = webFile?.filename } = {}) {
   const title = record.title.replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").trim().slice(0, 48);
-  const filename = /\.json$/i.test(existingName ?? "") ? existingName : `${title || "未命名曲谱"}.json`;
+  const filename = /\.json$/i.test(existingName ?? "") ? existingName : `${title || tr("未命名曲谱")}.json`;
   const data = JSON.stringify(record, null, 2) + "\n";
   let handle;
   if (typeof window.showSaveFilePicker === "function") {
     try {
       handle = await window.showSaveFilePicker({
         suggestedName: filename,
-        types: [{ description: "陶笛曲谱", accept: { "application/json": [".json"] } }]
+        types: [{ description: tr("陶笛曲谱"), accept: { "application/json": [".json"] } }]
       });
     } catch (error) {
       if (error.name === "AbortError") return null;
@@ -539,10 +548,10 @@ async function saveBrowserFile(record, { allowDownload = true, existingName = we
 
 async function save() {
   if (saving || deletingScore) return false;
-  if ($("title").value !== score.title) commitTitle();
+  if ($("title").value !== scoreTitle(score)) commitTitle();
   commitAuthor();
   commitBpm();
-  if (!score.title.trim()) score.title = "未命名曲谱";
+  if (!score.title.trim()) score.title = untitledScore;
   const record = structuredClone(score);
   const sourceId = score.id;
   const savedKey = savedVersion ? JSON.parse(savedVersion).key : record.key;
@@ -562,11 +571,11 @@ async function save() {
       const entry = file.entry ?? await writeScoreFile(record);
       addScoreFile(entry);
       folderState = "ready";
-      toast(`已保存 ${file.filename} · 已更新曲谱库`);
+      toast(tr("已保存 {file} · 已更新曲谱库", { file: file.filename }));
     } else {
       if (score.id === sourceId) webFile = file;
       const stored = storeWebScore({ score: record, ...file });
-      toast(file.status + " · " + (stored ? file.filename : "曲谱库仅保留到本次访问结束"));
+      toast(tr(file.status) + " · " + (stored ? file.filename : tr("曲谱库仅保留到本次访问结束")));
     }
     if (score.id === sourceId) {
       score.id = record.id;
@@ -575,7 +584,7 @@ async function save() {
     }
     return true;
   } catch (error) {
-    toast((file ? "曲谱库更新失败 · " : "保存失败 · ") + error.message);
+    toast(tr(file ? "曲谱库更新失败" : "保存失败") + " · " + error.message);
     return false;
   } finally {
     saving = false;
@@ -695,7 +704,7 @@ function enter(pitch, kind = "note", { advance = false, audition = true } = {}) 
   const current = noteAt();
   const prior = previousNote(b, n);
   if (kind === "tie" && (!prior || prior.kind === "rest")) {
-    toast("延音需要紧接在一个有音高的音符之后。");
+    toast(tr("延音需要紧接在一个有音高的音符之后。"));
     return;
   }
   const note = newNote(kind === "tie" ? prior.pitch : pitch, current?.duration ?? duration, {
@@ -742,7 +751,7 @@ function pasteNotes(bars) {
   });
   focusCursor();
   const count = bars.reduce((sum, bar) => sum + bar.length, 0);
-  toast(`已粘贴 ${count} 个音符`);
+  toast(tr("已粘贴 {count} 个音符", { count }));
 }
 
 function editRhythm(field, requestedValue) {
@@ -835,7 +844,7 @@ const chromaticKeys = ["C", "D♭", "D", "E♭", "E", "F", "F♯", "G", "A♭", 
 function transpose(semitones) {
   const soundingNotes = score.bars.flat().filter((note) => note.kind !== "rest");
   if (soundingNotes.some((note) => note.pitch + semitones < 12 || note.pitch + semitones > 107)) {
-    toast("移调超出可显示的音高范围。");
+    toast(tr("移调超出可显示的音高范围。"));
     return;
   }
   const root = sharpNames.includes(score.key) ? sharpNames.indexOf(score.key) : flatNames.indexOf(score.key);
@@ -847,7 +856,11 @@ function transpose(semitones) {
 }
 
 const keyOptions = Object.keys(keySignatures);
-$("key").innerHTML = keyOptions.map((key) => '<option value="' + key + '">' + key + ' 大调</option>').join("");
+function renderKeyOptions() {
+  $("key").replaceChildren(...keyOptions.map((key) => new Option(tr("{key} 大调", { key }), key)));
+  $("key").value = score.key;
+}
+renderKeyOptions();
 
 function glyph(name, x, y, color, scale = 1) {
   return '<path d="' + engraving[name] + '" transform="translate(' + x + ' ' + y + ') scale(' + scale + ')" fill="' + color + '"/>';
@@ -899,14 +912,18 @@ function swingPreview({ duration, feel }) {
     '<path d="M57 33h12m-12 5h12" fill="none" stroke="currentColor" stroke-width="1.6"/>' + interpreted + "</svg>";
 }
 
+function renderSwingOptions() {
+  $("swing-options").innerHTML = Object.entries(swingPatterns).map(([value, pattern]) =>
+    `<label class="swing-option"><input type="radio" name="swing" value="${value}"><span class="swing-card">` +
+    swingPreview(pattern) + `<span>${tr(pattern.title)}</span>` +
+    (pattern.duration ? `<small>${tr(durationNames[pattern.duration])}</small>` : "") + "</span></label>"
+  ).join("");
+}
+
 function setupSwingPicker() {
   const dialog = $("swing-dialog");
   const form = dialog.querySelector("form");
-  $("swing-options").innerHTML = Object.entries(swingPatterns).map(([value, pattern]) =>
-    `<label class="swing-option"><input type="radio" name="swing" value="${value}"><span class="swing-card">` +
-    swingPreview(pattern) + `<span>${pattern.title}</span>` +
-    (pattern.duration ? `<small>${durationNames[pattern.duration]}</small>` : "") + "</span></label>"
-  ).join("");
+  renderSwingOptions();
   $("swing").onclick = () => {
     dialog.returnValue = "";
     const selected = form.elements.swing;
@@ -922,7 +939,7 @@ function setupSwingPicker() {
 }
 
 $("durations").innerHTML = Object.entries(durationNames).map(([value, label]) =>
-  '<button class="tool" data-duration="' + value + '" title="' + label + '" aria-label="' + label + '"><svg viewBox="0 -4 36 48" aria-hidden="true">' + drawNote({ duration: +value }, 14, 39, "currentColor", true) + '</svg></button>'
+  '<button class="tool" data-duration="' + value + '" title="' + tr(label) + '" aria-label="' + tr(label) + '"><svg viewBox="0 -4 36 48" aria-hidden="true">' + drawNote({ duration: +value }, 14, 39, "currentColor", true) + '</svg></button>'
 ).join("");
 
 function svgText(text, x, y, attributes = "") {
@@ -959,7 +976,7 @@ function layoutAnnotation(text, maxWidth = 156) {
 
 function drawAnnotation(annotation, x, y) {
   return annotation.lines.map((line, i) => svgText(shareEscape(line), x, y + i * annotationLineHeight,
-    `class="note-annotation" text-anchor="middle" font-size="${annotationFont}" font-weight="600" fill="#365843"`)).join("");
+    `class="note-annotation" text-anchor="middle" font-size="${annotationFont}" font-weight="600" fill="var(--score-annotation, #365843)"`)).join("");
 }
 
 function spelling(pitch) {
@@ -977,7 +994,7 @@ function noteY(name, staffY) {
   return staffY + 40 - (steps - 30) * 5;
 }
 function drawClef(x, y) {
-  return glyph("treble", x + 4, y, "#354036");
+  return glyph("treble", x + 4, y, "var(--score-ink, #354036)");
 }
 function drawRest(duration, x, y, color) {
   if (duration <= 2) {
@@ -1019,8 +1036,8 @@ function badge(note, x, y, showPitch = true, source = note) {
     return '<path class="button-tie" d="M' + (x - 9) + ' ' + (y + 14) + 'h18" fill="none" stroke="' +
       (match?.color ?? "#6a7164") + '" stroke-width="1.8" stroke-linecap="round"/>';
   }
-  if (!match) return svgText("—", x, y + 20, 'text-anchor="middle" fill="#817c70"') +
-    svgText(spelling(note.pitch), x, y + 41, 'text-anchor="middle" font-size="10.5" fill="#817c70"');
+  if (!match) return svgText("—", x, y + 20, 'text-anchor="middle" fill="var(--score-pitch, #817c70)"') +
+    svgText(spelling(note.pitch), x, y + 41, 'text-anchor="middle" font-size="10.5" fill="var(--score-pitch, #817c70)"');
   const { code, color, ink = "#fffdf2", stick, dpad } = match;
   let drawing;
   if (code === "L" || code === "R") {
@@ -1034,7 +1051,7 @@ function badge(note, x, y, showPitch = true, source = note) {
   drawing += svgText(code, x, y + 18, 'text-anchor="middle" font-size="13" font-weight="700" fill="' + ink + '"');
   if (stick) drawing += modifierGlyph("stick", stick, x + 8.5, y - 5);
   if (dpad) drawing += modifierGlyph("dpad", dpad, x + 8.5, y + 16);
-  return drawing + (showPitch ? svgText(spelling(note.pitch), x, y + 41, 'text-anchor="middle" font-size="10.5" font-weight="600" fill="#606b5f"') : "");
+  return drawing + (showPitch ? svgText(spelling(note.pitch), x, y + 41, 'text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--score-pitch, #606b5f)"') : "");
 }
 function tieArc(fromX, toX, noteY, staffY, part = "complete") {
   if (toX <= fromX) return "";
@@ -1046,7 +1063,7 @@ function tieArc(fromX, toX, noteY, staffY, part = "complete") {
   const depth = Math.min(12, Math.max(4, (end - start) * .16));
   const middle = (start + end) / 2;
   return '<path class="tie-arc ' + part + '" d="M' + start + ' ' + y + ' Q' + middle + ' ' + (y + side * depth) + ' ' +
-    end + ' ' + y + '" fill="none" stroke="#354036" stroke-width="1.35" stroke-linecap="round" pointer-events="none"/>';
+    end + ' ' + y + '" fill="none" stroke="var(--score-ink, #354036)" stroke-width="1.35" stroke-linecap="round" pointer-events="none"/>';
 }
 function measureSpacing(bar, b, staff, buttons) {
   const selected = b === position.b;
@@ -1101,7 +1118,7 @@ function drawBeamGroup(group, staffY) {
         const distance = toward.x - item.x;
         dx = Math.sign(distance) * Math.min(10, Math.abs(distance) * .42);
       } else continue;
-      drawing += `<path class="staff-beam" data-beam-level="${level}" d="M${x} ${y}L${x + dx} ${y + slope * dx}" fill="none" stroke="#354036" stroke-width="3.2" pointer-events="none"/>`;
+      drawing += `<path class="staff-beam" data-beam-level="${level}" d="M${x} ${y}L${x + dx} ${y + slope * dx}" fill="none" stroke="var(--score-ink, #354036)" stroke-width="3.2" pointer-events="none"/>`;
     }
   }
   return drawing;
@@ -1140,8 +1157,8 @@ function drawRhythm(notePositions, staffY, meter, insertAt) {
     const last = group[2].x + 5;
     const middle = (first + last) / 2;
     const top = Math.max(8, Math.min(25, ...group.map((item) => item.beamUp ? item.beam - 9 : item.y - 14)));
-    drawing += `<path d="M${first} ${top + 5}v-5H${middle - 6}M${middle + 6} ${top}H${last}v5" fill="none" stroke="#64755e"/>` +
-      glyph("tuplet3", middle - 3.2, top + 3, "#354036", .6);
+    drawing += `<path d="M${first} ${top + 5}v-5H${middle - 6}M${middle + 6} ${top}H${last}v5" fill="none" stroke="var(--score-rhythm, #64755e)"/>` +
+      glyph("tuplet3", middle - 3.2, top + 3, "var(--score-ink, #354036)", .6);
   }
   return drawing;
 }
@@ -1158,8 +1175,8 @@ function barDrawing(bar, b, x1, x2, { staff, buttons, prefix, spacing, staffY, b
   const stretch = Math.max(0, x2 - start - cellWidth - gap - 18 - (tail ? slotWidth + 12 : 0));
   let beatsUsed = 0;
   let cellStart = start + 9;
-  let drawing = svgText(empty ? (b + 1) + " · 空小节" : b + 1, start + 1, 19, 'font-size="11" font-weight="700" fill="#788071"');
-  drawing += '<path d="M' + x2 + ' ' + (staff ? staffY : 25) + 'V' + (staff ? staffY + 40 : badgeY + 43) + '" stroke="#929981" stroke-width="1.15"/>';
+  let drawing = svgText(empty ? (b + 1) + " · " + tr("空小节") : b + 1, start + 1, 19, 'font-size="11" font-weight="700" fill="var(--score-label, #788071)"');
+  drawing += '<path d="M' + x2 + ' ' + (staff ? staffY : 25) + 'V' + (staff ? staffY + 40 : badgeY + 43) + '" stroke="var(--score-barline, #929981)" stroke-width="1.15"/>';
   const notePositions = [];
   const accidentals = new Map();
   const flat = score.key === "F" || score.key.includes("♭");
@@ -1188,8 +1205,8 @@ function barDrawing(bar, b, x1, x2, { staff, buttons, prefix, spacing, staffY, b
     const width = Math.max(3, right - left);
     const selected = selectedBar && n === position.n && !position.slot;
     const batchSelected = selectedNotes.has(`${b}:${n}`);
-    const color = "#354036";
-    const label = (name || "休止") + " · " + durationNames[note.duration];
+    const color = "var(--score-ink, #354036)";
+    const label = (name || tr("休止")) + " · " + tr(durationNames[note.duration]);
     drawing += '<g class="target' + (selected ? " selected" : "") + (batchSelected ? " batch-selected" : "") + '" data-bar="' + b + '" data-note="' + n + '" tabindex="-1" role="button" aria-label="' + label + '"><rect x="' + left + '" y="' + targetTop + '" width="' + width + '" height="' + (end - targetTop) + '" fill="transparent"/>';
     drawing += `<rect class="playback-frame" x="${x - 21}" y="${targetTop}" width="${buttons ? 51 : 43}" height="${end - targetTop - 2}" rx="4" aria-hidden="true"/>`;
     if (staff) {
@@ -1217,7 +1234,7 @@ function barDrawing(bar, b, x1, x2, { staff, buttons, prefix, spacing, staffY, b
     if (buttons) {
       drawing += badge(note, x, badgeY, true, fingeringSource(b, n));
       drawing += cursorFrame(x, badgeY - 1, 28, 30);
-      if (note.kind === "note" && note.duration >= 8) drawing += '<path d="M' + (x - 6) + ' ' + (badgeY + 44) + 'h12' + 'm-12 2.5h12'.repeat(Math.log2(note.duration) - 3) + '" stroke="#758171" stroke-linecap="round" stroke-width="1.15"/>';
+      if (note.kind === "note" && note.duration >= 8) drawing += '<path d="M' + (x - 6) + ' ' + (badgeY + 44) + 'h12' + 'm-12 2.5h12'.repeat(Math.log2(note.duration) - 3) + '" stroke="var(--score-rhythm, #758171)" stroke-linecap="round" stroke-width="1.15"/>';
     }
     if (cells[n].annotation) drawing += drawAnnotation(cells[n].annotation, x, end + 15);
     drawing += "</g>";
@@ -1233,16 +1250,16 @@ function barDrawing(bar, b, x1, x2, { staff, buttons, prefix, spacing, staffY, b
     const isNewBar = empty && slot === "tail";
     const my = staffY + 20;
     const selected = selectedBar && position.slot === slot;
-    const label = slot === "insert" ? "插入空档" : "第 " + (b + 1) + " 小节末尾输入";
+    const label = slot === "insert" ? tr("插入空档") : tr("第 {bar} 小节末尾输入", { bar: b + 1 });
     const hitTop = isNewBar ? 5 : targetTop;
     // The measure can be clicked across its remaining space. Only the beat cursor is visible.
     drawing += '<g class="target score-slot' + (selected ? " selected" : isNewBar ? " new-bar-slot" : "") + '" data-bar="' + b + '" data-note="' + n + '" data-slot="' + slot + '" tabindex="-1" role="button" aria-label="' + label + '"><rect class="slot-hit-area" x="' + hitLeft + '" y="' + hitTop + '" width="' + (hitRight - hitLeft) + '" height="' + (end - hitTop) + '" fill="none" pointer-events="all"/>';
     if (staff) {
       drawing += cursorFrame(cursorX, my - slotHalf, slotWidth, slotWidth);
       if (selected) {
-        drawing += '<g class="pending-rest" aria-hidden="true" pointer-events="none">' + drawRest(duration, cursorX, my, "#354036");
-        if (dotted) drawing += '<circle cx="' + (cursorX + 9) + '" cy="' + (my - 3) + '" r="1.6" fill="#354036"/>';
-        if (triplet) drawing += glyph("tuplet3", cursorX - 3.2, 30, "#354036", .6);
+        drawing += '<g class="pending-rest" aria-hidden="true" pointer-events="none">' + drawRest(duration, cursorX, my, "var(--score-ink, #354036)");
+        if (dotted) drawing += '<circle cx="' + (cursorX + 9) + '" cy="' + (my - 3) + '" r="1.6" fill="var(--score-ink, #354036)"/>';
+        if (triplet) drawing += glyph("tuplet3", cursorX - 3.2, 30, "var(--score-ink, #354036)", .6);
         drawing += "</g>";
       }
     }
@@ -1302,7 +1319,7 @@ function renderNotation() {
         const error = b + index < score.bars.length && barUnits(bar) !== meterUnits[score.meter];
         const lines = Array.from({ length: 5 }, (_, n) => "M" + x + " " + (staffY + 10 * n) + "H" + end).join(" ");
         staves += '<path class="staff-lines' + (error ? " error" : "") + '" data-staff-bar="' + (b + index) + '" d="' + lines +
-          '" stroke="' + (error ? "#c63832" : "#929985") + '" stroke-width="' + (error ? "1.1" : ".85") + '" fill="none" pointer-events="none"/>';
+          '" stroke="' + (error ? "var(--score-error, #c63832)" : "var(--score-rule, #929985)") + '" stroke-width="' + (error ? "1.1" : ".85") + '" fill="none" pointer-events="none"/>';
       }
       const contents = barDrawing(bar, b + index, x, end, { staff, buttons, prefix: inset, spacing, staffY, badgeY, previousAnchor, endsSystem });
       drawing += contents.drawing;
@@ -1311,7 +1328,8 @@ function renderNotation() {
       x = end;
     });
     const marker = `<line class="playhead" x1="0" x2="0" y1="${staff ? 26 : 21}" y2="${musicHeight - 5}" visibility="hidden" aria-hidden="true"/>`;
-    rows.push('<svg viewBox="0 0 ' + width + ' ' + height + '" style="height:' + height + 'px;min-width:' + width + 'px" aria-label="第 ' + (b + 1) + ' 至 ' + (b + selectedBars.length) + ' 小节" fill="var(--ink)">' + staves + drawing + marker + "</svg>");
+    const label = tr("第 {first} 至 {last} 小节", { first: b + 1, last: b + selectedBars.length });
+    rows.push(`<svg viewBox="0 0 ${width} ${height}" style="height:${height}px;min-width:${width}px" aria-label="${label}" fill="var(--ink)">` + staves + drawing + marker + "</svg>");
     b += selectedBars.length;
   }
   playbackLayout = layout;
@@ -1328,7 +1346,7 @@ function drawController() {
   const stick = (x, y) => '<g transform="translate(' + x + ' ' + y + ')"><circle r="16" fill="#25332c" stroke="#899084"/><circle cy="-1" r="12.2" fill="#48574d"/><circle cy="-1" r="9.5" fill="#5a675b" stroke="#34463a"/></g>';
   const mini = (x, y, name) => '<circle cx="' + x + '" cy="' + y + '" r="5.2" fill="#29372e" stroke="#879183" stroke-width=".6"/>' +
     svgText(name, x, y + 2.8, 'text-anchor="middle" fill="#d9dccf" font-size="8" font-weight="700"');
-  $("pad-figure").innerHTML = '<svg viewBox="0 0 250 166" role="img" aria-label="Switch 2 Pro Controller 正面按键分布">' +
+  $("pad-figure").innerHTML = '<svg viewBox="0 0 250 166" role="img" aria-label="' + tr("Switch 2 Pro Controller 正面按键分布") + '">' +
     '<defs><linearGradient id="pad-body-fill" x2="0" y2="1"><stop stop-color="#46534a"/><stop offset="1" stop-color="#283a30"/></linearGradient></defs>' +
     '<path d="M21 40Q28 17 51 14L83 12 93 27h64l10-15 32 2q23 3 30 26l-9 16H30Z" fill="#a9ada2" stroke="#75867a" stroke-width="1.4"/>' +
     shoulder(55, "M32 27Q40 16 56 16l26-2 6 15H32Z", L) + shoulder(195, "M218 27q-8-11-24-11l-26-2-6 15h56Z", R) +
@@ -1340,7 +1358,8 @@ function drawController() {
     mini(97, 46, "−") + mini(151, 46, "+") + mini(102, 70, "◉") + mini(145, 70, "⌂") + mini(138, 88, "C") +
     '<path d="M116 59l8-10 8 10-8 9Z" fill="none" stroke="#c5aa69" stroke-width="1.1"/><path d="M113 91h3m3 0h3m3 0h3" stroke="#a6c48b" stroke-linecap="round"/>' +
     '</svg>';
-  $("natural-keys").innerHTML = natural.map((item) => '<button data-listen="' + item.pitch + '" title="试听 ' + pitchLabel(item.pitch) + '">' + cap(item) + pitchLabel(item.pitch) + '</button>').join("");
+  $("natural-keys").innerHTML = natural.map((item) => '<button data-listen="' + item.pitch + '" title="' +
+    tr("试听 {pitch}", { pitch: pitchLabel(item.pitch) }) + '">' + cap(item) + pitchLabel(item.pitch) + '</button>').join("");
 }
 
 function renderGuide() {
@@ -1353,18 +1372,30 @@ function renderGuide() {
     const render = (item) => item.code + (instructions(item) ? " + " + instructions(item) : "");
     const recommended = options[0];
     return '<tr><td><button class="guide-pitch" data-listen="' + pitch + '">' + pitchLabel(pitch) + '</button></td><td><span class="guide-fingering">' +
-      cap(recommended) + '<strong>' + (instructions(recommended) || "原音") + '</strong></span></td><td>' + (options.slice(1).map(render).join("、") || "—") + '</td></tr>';
+      cap(recommended) + '<strong>' + (instructions(recommended) || tr("原音")) + '</strong></span></td><td>' +
+      (options.slice(1).map(render).join(uiLanguage === "en" ? ", " : "、") || "—") + '</td></tr>';
   });
-  $("guide-table").innerHTML = '<table><thead><tr><th>音高</th><th>推荐按法</th><th>其他按法</th></tr></thead><tbody>' + rows.join("") + '</tbody></table>';
+  $("guide-table").innerHTML = '<table><thead><tr>' + ["音高", "推荐按法", "其他按法"].map((title) => '<th>' + tr(title) + '</th>').join("") +
+    '</tr></thead><tbody>' + rows.join("") + '</tbody></table>';
 }
 
 function drawKeyboard() {
   const white = pianoPitches.filter((pitch) => pitchLabel(pitch).length === 2);
   const black = pianoPitches.filter((pitch) => pitchLabel(pitch).length === 3);
-  const key = (pitch, type, style = "") => '<button class="piano ' + type + (fingerings.has(pitch) ? "" : " outside") + '" data-pitch="' + pitch + '" title="' + pitchLabel(pitch) + (fingerings.has(pitch) ? "" : " · 无游戏按法") + '" ' + style + '>' + pitchLabel(pitch) + '</button>';
+  const key = (pitch, type, style = "") => '<button class="piano ' + type + (fingerings.has(pitch) ? "" : " outside") + '" data-pitch="' + pitch + '" title="' + pianoKeyTitle(pitch) + '" ' + style + '>' + pitchLabel(pitch) + '</button>';
   $("keyboard").innerHTML = white.map((pitch) => key(pitch, "white")).join("") + black.map((pitch) =>
     key(pitch, "black", 'style="left:' + (white.filter((value) => value < pitch).length * 100 / white.length) + '%"')
   ).join("");
+}
+
+function pianoKeyTitle(pitch) {
+  return pitchLabel(pitch) + (fingerings.has(pitch) ? "" : " · " + tr("无游戏按法"));
+}
+
+function rhythmText({ duration, dotted, triplet }) {
+  let label = tr(durationNames[duration]);
+  if (dotted) label = tr("附点{duration}", { duration: label });
+  return triplet ? tr("{duration}三连音", { duration: label }) : label;
 }
 
 function renderControls() {
@@ -1375,56 +1406,58 @@ function renderControls() {
   const annotationTool = $("note-annotation");
   annotationTool.disabled = !note || hasRange;
   annotationTool.classList.toggle("has-annotation", Boolean(note?.annotation) && !hasRange);
-  $("measure-count").textContent = score.bars.length + " 小节";
+  $("measure-count").textContent = barCount(score.bars.length);
   const optimizeButton = $("optimize-fingering");
   const hasAlternative = (note) => note?.kind === "note" && (fingerings.get(note.pitch)?.length ?? 0) > 1;
   optimizeButton.disabled = !(hasRange ? range.some(hasAlternative) : score.bars.some((bar) => bar.some(hasAlternative)));
-  optimizeButton.querySelector("span").textContent = hasRange ? "优化所选按法" : "自动优化按法";
-  optimizeButton.title = hasRange ? "优化选区内音符的按法，支持撤销" : "优化整首曲谱的换键，支持撤销";
+  optimizeButton.querySelector("span").textContent = hasRange ? tr("优化所选按法") : tr("自动优化按法");
+  optimizeButton.title = hasRange ? tr("优化选区内音符的按法，支持撤销") : tr("优化整首曲谱的换键，支持撤销");
   const deleteButton = $("delete");
   const isRest = note?.kind === "rest";
   const emptyMeasure = bar?.length === 0;
   deleteButton.disabled = !note && !emptyMeasure && !hasRange;
-  deleteButton.querySelector("span").textContent = hasRange ? "删除所选" : emptyMeasure ? "删除小节" : isRest ? "删除休止" : "转为休止";
-  deleteButton.title = (hasRange ? "移除选中的全部音符" : emptyMeasure ? "删除空小节" : isRest ? "删除休止符" : "转为等时值休止符") + "（Delete / Backspace）";
-  $("position").textContent = "第 " + (position.b + 1) + " 小节";
-  $("bar-number").textContent = "当前小节 " + (position.b + 1);
+  deleteButton.querySelector("span").textContent = hasRange ? tr("删除所选") : emptyMeasure ? tr("删除小节") : isRest ? tr("删除休止") : tr("转为休止");
+  deleteButton.title = tr(hasRange ? "移除选中的全部音符" : emptyMeasure ? "删除空小节" : isRest ? "删除休止符" : "转为等时值休止符") +
+    (uiLanguage === "en" ? " (Delete / Backspace)" : "（Delete / Backspace）");
+  $("position").textContent = tr("第 {bar} 小节", { bar: position.b + 1 });
+  $("bar-number").textContent = tr("当前小节 {bar}", { bar: position.b + 1 });
   const unitsPerBeat = 192 / Number(score.meter.split("/")[1]);
   const total = barUnits(bar ?? []) / unitsPerBeat;
   const capacity = meterUnits[score.meter] / unitsPerBeat;
   const format = (value) => Number(value.toFixed(3)).toString();
-  $("bar-duration").textContent = format(total) + " / " + capacity + " 拍";
+  $("bar-duration").textContent = format(total) + " / " + beatCount(capacity);
   const warning = $("bar-warning");
-  warning.textContent = !bar ? "空小节" : total === capacity ? "正常" :
-    (total > capacity ? "多 " : "少 ") + format(Math.abs(total - capacity)) + " 拍";
+  warning.textContent = !bar ? tr("空小节") : total === capacity ? tr("正常") :
+    tr(total > capacity ? "多 {count} 拍" : "少 {count} 拍", { count: format(Math.abs(total - capacity)) });
   warning.classList.toggle("error", Boolean(bar) && total !== capacity);
   const uniformDuration = range.every((entry) => entry.duration === duration);
   const flagState = (field, value) => range.some((entry) => entry[field] !== value) ? "mixed" : value;
   const dotState = flagState("dotted", dotted);
   const tripletState = flagState("triplet", triplet);
-  const rhythmLabel = (dotted ? "附点" : "") + durationNames[duration] + (triplet ? "三连音" : "");
+  const rhythmLabel = rhythmText({ duration, dotted, triplet });
   const entryBeats = noteUnits({ duration, dotted, triplet }) / unitsPerBeat;
-  const entryLabel = uniformDuration && dotState !== "mixed" && tripletState !== "mixed" ? rhythmLabel + " / " + format(entryBeats) + " 拍" : "混合时值";
-  $("entry-duration").textContent = (position.slot ? "输入" : "选中") + "时值 · " + entryLabel;
+  const entryLabel = uniformDuration && dotState !== "mixed" && tripletState !== "mixed" ? rhythmLabel + " / " + beatCount(format(entryBeats)) : tr("混合时值");
+  $("entry-duration").textContent = tr(position.slot ? "输入时值" : "选中时值") + " · " + entryLabel;
   $("dot").setAttribute("aria-pressed", dotState);
   $("triplet").setAttribute("aria-pressed", tripletState);
   all("[data-duration]").forEach((button) => button.setAttribute("aria-pressed", uniformDuration && Number(button.dataset.duration) === duration));
-  let detail = '<span>待输入</span>';
-  if (note?.kind === "rest") detail = '<strong class="pitch">休止</strong><span>' + durationNames[note.duration] + '</span>';
+  let detail = '<span>' + tr("待输入") + '</span>';
+  if (note?.kind === "rest") detail = '<strong class="pitch">' + tr("休止") + '</strong><span>' + rhythmText(note) + '</span>';
   else if (note) {
     const source = fingeringSource(position.b, position.n);
     const fingering = fingeringFor(source ?? note);
-    const rhythm = (note.dotted ? "附点" : "") + durationNames[note.duration] + (note.triplet ? "三连音" : "");
+    const rhythm = rhythmText(note);
     detail = '<strong class="pitch">' + spelling(note.pitch) + '</strong><span>' + rhythm + '</span>';
     if (fingering) {
-      const label = instructions(fingering) || "原音";
-      const content = cap(fingering) + '<strong>' + (note.kind === "tie" ? '延音 · ' : '') + label + '</strong>';
+      const label = instructions(fingering) || tr("原音");
+      const content = cap(fingering) + '<strong>' + (note.kind === "tie" ? tr("延音") + " · " : "") + label + '</strong>';
       detail += source && fingerings.get(source.pitch)?.length > 1
-        ? '<button type="button" class="inspector-fingering" aria-haspopup="dialog" aria-controls="fingering-panel" aria-expanded="false" aria-label="编辑按键，当前 ' + fingering.code + ' · ' + label + '" title="编辑按键">' + content + icon("chevron-down") + '</button>'
+        ? '<button type="button" class="inspector-fingering" aria-haspopup="dialog" aria-controls="fingering-panel" aria-expanded="false" aria-label="' +
+          tr("编辑按键，当前 {fingering}", { fingering: fingering.code + " · " + label }) + '" title="' + tr("编辑按键") + '">' + content + icon("chevron-down") + '</button>'
         : '<span class="inspector-fingering">' + content + '</span>';
-    } else detail += '<strong>无游戏按法</strong>';
+    } else detail += '<strong>' + tr("无游戏按法") + '</strong>';
   }
-  if (selectedNotes.size > 1) detail = `<strong>已选中 ${selectedNotes.size} 个音符</strong>`;
+  if (selectedNotes.size > 1) detail = `<strong>${tr("已选中 {count} 个音符", { count: selectedNotes.size })}</strong>`;
   $("inspector-detail").innerHTML = detail;
   updateStatus();
 }
@@ -1490,17 +1523,17 @@ function openFingeringEditor(anchor) {
   const current = fingeringFor(source);
   const options = $("fingering-options");
   const tied = noteAt().kind === "tie";
-  $("fingering-description").textContent = `${spelling(source.pitch)} · ${tied ? "延音沿用起音的按法" : "选择更顺手的按法"}`;
+  $("fingering-description").textContent = `${spelling(source.pitch)} · ${tied ? tr("延音沿用起音的按法") : tr("选择更顺手的按法")}`;
   options.replaceChildren(...choices.map((choice, index) => {
     const active = choice === current;
     const recommended = index === 0;
-    const label = instructions(choice) || "原音";
+    const label = instructions(choice) || tr("原音");
     const button = document.createElement("button");
     button.type = "button";
     button.className = "fingering-option";
     button.setAttribute("aria-pressed", String(active));
     button.innerHTML = cap(choice) + `<span>${label}</span>` +
-      (active || recommended ? `<small>${active ? "当前" : ""}${active && recommended ? " · " : ""}${recommended ? "默认" : ""}</small>` : "");
+      (active || recommended ? `<small>${active ? tr("当前") : ""}${active && recommended ? " · " : ""}${recommended ? tr("默认") : ""}</small>` : "");
     button.onclick = () => {
       closeFingeringEditor();
       if (!active && selectedFingeringSource() === source) {
@@ -1552,14 +1585,12 @@ window.addEventListener("resize", () => {
 
 function refresh() {
   closeFingeringEditor();
-  $("title").value = score.title;
-  $("title-width").textContent = score.title;
+  $("title").value = $("title-width").textContent = scoreTitle(score);
   $("author").value = score.author;
   $("bpm").value = score.bpm;
   $("meter").value = score.meter;
   $("key").value = score.key;
-  const swing = swingPatterns[score.swing];
-  $("swing-value").textContent = swing.duration ? `${swing.title}（${durationNames[swing.duration]}）` : swing.title;
+  renderSwingValue();
   $("loop").value = score.loop;
   const barOptions = score.bars.map((_, i) => '<option value="' + i + '">' + (i + 1) + '</option>').join("");
   $("loop-range").hidden = score.loop !== "section";
@@ -1569,6 +1600,13 @@ function refresh() {
   renderNotation();
   renderControls();
   renderPlayback();
+}
+
+function renderSwingValue() {
+  const swing = swingPatterns[score.swing];
+  const title = tr(swing.title);
+  const unit = tr(durationNames[swing.duration]);
+  $("swing-value").textContent = swing.duration ? (uiLanguage === "en" ? `${title} (${unit})` : `${title}（${unit}）`) : title;
 }
 
 let audio;
@@ -1801,10 +1839,7 @@ function pausePlayback() {
     playback = null;
   }
   cancelAnimationFrame(frame);
-  if ($("play").getAttribute("aria-label") !== "播放") {
-    $("play").setAttribute("aria-label", "播放");
-    $("play").innerHTML = icon("play");
-  }
+  renderPlayButton();
   sounding = null;
   showSounding();
   updatePlayhead();
@@ -1848,7 +1883,7 @@ function startPlayback(from) {
   const schedule = timeline();
   const { events, bars, total } = schedule;
   if (!events.length) {
-    toast("先输入音符或休止符。");
+    toast(tr("先输入音符或休止符。"));
     return;
   }
   const looping = score.loop !== "off";
@@ -1859,7 +1894,7 @@ function startPlayback(from) {
   const requested = from ?? cursorTime(schedule);
   const sectionLoop = looping && score.loop === "section";
   if (requested >= total && !sectionLoop) {
-    toast("光标已在谱末，请先选一个拍位。");
+    toast(tr("光标已在谱末，请先选一个拍位。"));
     return;
   }
   offset = sectionLoop && (requested < begin || requested >= end) ? begin : requested;
@@ -1869,8 +1904,7 @@ function startPlayback(from) {
   const started = context.currentTime + (from === undefined ? .05 : .012) - offset;
   playback = { context, channel, started, events, bars, total, begin, end, launch: offset, looping, loopQueued: false };
   scheduleMelody(events, context, channel, started, end);
-  $("play").setAttribute("aria-label", "暂停");
-  $("play").innerHTML = icon("pause");
+  renderPlayButton();
   tick();
 }
 function scheduleMelody(events, context, channel, started, end, from = offset) {
@@ -1897,6 +1931,14 @@ function togglePlayback() {
   }
   commitBpm();
   startPlayback();
+}
+
+function renderPlayButton() {
+  const label = playback ? tr("暂停") : tr("播放");
+  const button = $("play");
+  button.setAttribute("aria-label", label);
+  button.title = playback ? tr("暂停（空格）") : tr("播放（空格）");
+  button.innerHTML = icon(playback ? "pause" : "play");
 }
 
 let padIndex = null;
@@ -1932,14 +1974,18 @@ function createLivePitchInput() {
   };
 }
 const setControllerPitch = createLivePitchInput();
+let controllerStatus = [];
 
-function updateGamepadStatus(label, devices = [], active) {
+function updateGamepadStatus(message, devices = [], active) {
+  controllerStatus = [message, devices, active];
+  const label = tr(message);
   const status = $("pad-state");
   const list = $("pad-device-list");
   if (status.textContent !== label) status.textContent = label;
   const deviceNames = devices.map((device) => {
-    const name = device.id || `手柄 ${device.index + 1}`;
-    return name + (device === active ? " · 正在使用" : device.mapping !== "standard" ? " · 未提供标准映射" : "");
+    const name = device.id || tr("手柄 {number}", { number: device.index + 1 });
+    const state = device === active ? "正在使用" : device.mapping !== "standard" ? "未提供标准映射" : "";
+    return state ? name + " · " + tr(state) : name;
   });
   const detail = deviceNames.join("\n") || label;
   if (list.textContent !== detail) list.textContent = detail;
@@ -2004,6 +2050,12 @@ function setupMidiInput() {
   let deviceSync = Promise.resolve();
   let preferredId;
   let highlightedKey;
+  let statusMessage = "";
+
+  function showStatus(message) {
+    statusMessage = message;
+    status.textContent = tr(message);
+  }
 
   function refreshPitch() {
     const pitch = [...held.values()].at(-1) ?? null;
@@ -2012,7 +2064,8 @@ function setupMidiInput() {
     highlightedKey = pitch === null ? null : $("keyboard").querySelector(`[data-pitch="${pitch}"]`);
     highlightedKey?.classList.add("midi-held");
     if (!input) return;
-    status.textContent = pitch === null ? "已连接" : `${spelling(pitch)}${fingerings.has(pitch) ? "" : " · 无游戏按法"}`;
+    showStatus("已连接");
+    if (pitch !== null) status.textContent = spelling(pitch) + (fingerings.has(pitch) ? "" : " · " + tr("无游戏按法"));
   }
 
   function stopNotes() {
@@ -2044,7 +2097,7 @@ function setupMidiInput() {
     // Chromium can retain Windows MIDI handles until the requesting document is gone.
     const frame = document.createElement("iframe");
     frame.hidden = true;
-    frame.title = "MIDI 输入连接";
+    frame.title = tr("MIDI 输入连接");
     frame.allow = "midi";
     frame.srcdoc = "<script>function openMidiInput() { return navigator.requestMIDIAccess({ sysex: false }); }</script>";
     sessionFrame = frame;
@@ -2091,15 +2144,15 @@ function setupMidiInput() {
         input = next?.state === "connected" ? next : undefined;
         if (input) {
           input.onmidimessage = receiveNote;
-          status.textContent = "已连接";
+          showStatus("已连接");
         }
       }
-      devices.replaceChildren(...inputs.map((port) => new Option(port.name || "MIDI 输入", port.id)));
+      devices.replaceChildren(...inputs.map((port) => new Option(port.name || tr("MIDI 输入"), port.id)));
       if (input) devices.value = input.id;
       devices.hidden = mode.hidden = !input;
-      if (!input) status.textContent = "已授权 · 等待连接 MIDI 键盘";
+      if (!input) showStatus("已授权 · 等待连接 MIDI 键盘");
     }).catch(() => {
-      if (access === session) status.textContent = "切换 MIDI 设备失败，请断开 MIDI 后重新连接。";
+      if (access === session) showStatus("切换 MIDI 设备失败，请断开 MIDI 后重新连接。");
     });
     return deviceSync;
   }
@@ -2110,30 +2163,36 @@ function setupMidiInput() {
       endMidiSession();
       devices.hidden = mode.hidden = true;
       mode.value = "preview";
-      status.textContent = "已断开 MIDI";
-      connect.textContent = "连接 MIDI";
+      showStatus("已断开 MIDI");
+      connect.textContent = tr("连接 MIDI");
       return;
     }
     settings.hidden = false;
     if (typeof navigator.requestMIDIAccess !== "function") {
-      status.textContent = "当前浏览器不支持 Web MIDI，可在 Chrome 或 Edge 打开。";
+      showStatus("当前浏览器不支持 Web MIDI，可在 Chrome 或 Edge 打开。");
       return;
     }
     audioContext();
     connect.disabled = true;
-    status.textContent = "正在请求 MIDI 访问权限…";
+    showStatus("正在请求 MIDI 访问权限…");
     try {
       access = await requestMidiSession();
       access.onstatechange = syncDevices;
       await syncDevices();
-      connect.textContent = "断开 MIDI";
+      connect.textContent = tr("断开 MIDI");
     } catch {
       endMidiSession();
-      status.textContent = "无法访问 MIDI。请检查站点权限，或在 Chrome 或 Edge 中打开。";
+      showStatus("无法访问 MIDI。请检查站点权限，或在 Chrome 或 Edge 中打开。");
     } finally {
       connect.disabled = false;
     }
   };
+  document.addEventListener("ocarina-language-change", () => {
+    connect.textContent = tr(access ? "断开 MIDI" : "连接 MIDI");
+    status.textContent = tr(statusMessage);
+    if (held.size) refreshPitch();
+    for (const option of devices.options) option.textContent = access?.inputs.get(option.value)?.name || tr("MIDI 输入");
+  });
   window.addEventListener("blur", stopNotes);
   document.addEventListener("visibilitychange", () => { if (document.hidden) stopNotes(); });
 }
@@ -2147,9 +2206,9 @@ function renderLibrary() {
   if (folderState !== "ready" || !entries.length) {
     const empty = document.createElement("p");
     empty.className = "card empty";
-    empty.textContent = folderState === "loading" ? "正在读取项目的「曲谱」文件夹…" :
-      folderState === "error" ? "无法读取「曲谱」文件夹，请用本地曲谱服务打开网页。" :
-      "导入曲谱文件或分享图，或保存当前曲谱以加入曲谱库。";
+    empty.textContent = folderState === "loading" ? tr("正在读取项目的「曲谱」文件夹…") :
+      folderState === "error" ? tr("无法读取「曲谱」文件夹，请用本地曲谱服务打开网页。") :
+      tr("导入曲谱文件或分享图，或保存当前曲谱以加入曲谱库。");
     list.append(empty);
   }
   list.append(...entries.map((entry) => libraryButton(entry)));
@@ -2159,8 +2218,8 @@ async function deleteLibraryScore(entry) {
   if (saving || deletingScore || folderState === "loading") return;
   const { id, title } = entry.score;
   const projectFile = useProjectFolder && Boolean(entry.filename);
-  const detail = projectFile ? "文件将移到「曲谱 / 已删除」。" : "这首曲谱会从当前浏览器的曲谱库移除。";
-  if (!window.confirm(`删除《${title}》？\n${detail}`)) return;
+  const detail = projectFile ? tr("文件将移到「曲谱 / 已删除」。") : tr("这首曲谱会从当前浏览器的曲谱库移除。");
+  if (!window.confirm(tr("删除《{title}》？", { title }) + "\n" + detail)) return;
   deletingScore = true;
   try {
     if (projectFile) await requestFolder("/" + encodeURIComponent(id), { method: "DELETE" });
@@ -2186,9 +2245,9 @@ async function deleteLibraryScore(entry) {
       rememberActive(score.id);
       updateStatus();
     }
-    toast(projectFile ? "已移到「曲谱 / 已删除」" : "已从曲谱库删除");
+    toast(projectFile ? tr("已移到「曲谱 / 已删除」") : tr("已从曲谱库删除"));
   } catch (error) {
-    toast("删除失败：" + error.message);
+    toast(tr("删除失败") + " · " + error.message);
   } finally {
     deletingScore = false;
     if (view === "library") renderLibrary();
@@ -2200,14 +2259,25 @@ function libraryButton(entry, builtIn = false) {
   const isCurrent = item.id === score.id && (builtIn || useProjectFolder || JSON.stringify(restoreScore(item)) === savedVersion);
   const button = document.createElement("button");
   button.className = "card library-entry";
+  const heading = document.createElement("div");
+  heading.className = "library-entry-heading";
   const title = document.createElement("strong");
-  title.textContent = item.title;
+  title.textContent = scoreTitle(item);
+  heading.append(title);
+  const author = normalizeAuthor(item.author);
+  if (author) {
+    const attribution = document.createElement("span");
+    attribution.className = "library-entry-author";
+    attribution.textContent = tr("制作者") + " " + author;
+    heading.append(attribution);
+  }
   const detail = document.createElement("span");
-  detail.textContent = `${item.bars.length} 小节 · ${item.key} 大调 · ${item.meter} · ${item.bpm} BPM` +
-    (filename || builtIn ? "" : " · 浏览器旧版备份") + (isCurrent ? " · 当前曲谱" : "");
+  detail.className = "library-entry-detail";
+  detail.textContent = [barCount(item.bars.length), tr("{key} 大调", { key: item.key }), item.meter, item.bpm + " BPM",
+    !filename && !builtIn && tr("浏览器旧版备份"), isCurrent && tr("当前曲谱")].filter(Boolean).join(" · ");
   if (isCurrent) button.setAttribute("aria-current", "true");
-  if (filename) button.title = useProjectFolder ? "曲谱 / " + filename : filename;
-  button.append(title, detail);
+  if (filename) button.title = useProjectFolder ? tr("曲谱 / {filename}", { filename }) : filename;
+  button.append(heading, detail);
   button.onclick = () => {
     if (isCurrent) setView("editor");
     else switchScore(item, true, builtIn || useProjectFolder ? null : entry);
@@ -2218,8 +2288,8 @@ function libraryButton(entry, builtIn = false) {
   const remove = document.createElement("button");
   remove.type = "button";
   remove.className = "secondary library-remove";
-  remove.textContent = "删除";
-  remove.setAttribute("aria-label", "删除《" + item.title + "》");
+  remove.textContent = tr("删除");
+  remove.setAttribute("aria-label", tr("删除《{title}》", { title: item.title }));
   remove.disabled = folderState === "loading";
   remove.onclick = () => deleteLibraryScore(entry);
   row.append(button, remove);
@@ -2243,12 +2313,10 @@ function setView(next) {
   if (view === "editor") renderNotation();
 }
 function commitTitle() {
-  const title = $("title").value.trim() || "未命名曲谱";
+  const typed = $("title").value.trim();
+  const title = typed === scoreTitle(score) ? score.title : typed || untitledScore;
   if (score.title !== title) updateHistory(() => { score.title = title; }, updateStatus);
-  if ($("title").value !== title) {
-    $("title").value = title;
-    $("title-width").textContent = title;
-  }
+  $("title").value = $("title-width").textContent = scoreTitle(score);
 }
 function commitAuthor() {
   const author = normalizeAuthor($("author").value);
@@ -2302,7 +2370,7 @@ function registerTempoTap(now = performance.now()) {
   clearTimeout(tapFlashTimer);
   tapFlashTimer = setTimeout(() => $("tap-tempo").classList.remove("tapped"), 115);
   if (tempoIntervals.length < 2) {
-    $("tap-feedback").textContent = `已打 ${tempoIntervals.length + 1} 拍，至少打 3 拍。`;
+    $("tap-feedback").textContent = tr("已打 {count} 拍，至少打 3 拍。", { count: tempoIntervals.length + 1 });
     return;
   }
   const average = tempoIntervals.reduce((sum, interval) => sum + interval, 0) / tempoIntervals.length;
@@ -2310,7 +2378,7 @@ function registerTempoTap(now = performance.now()) {
   if (setScoreBpm(bpm, tapHistoryEntry !== null && undoStack.at(-1) === tapHistoryEntry)) {
     tapHistoryEntry = undoStack.at(-1);
   }
-  $("tap-feedback").textContent = `测得 ${bpm} BPM`;
+  $("tap-feedback").textContent = tr("测得 {bpm} BPM", { bpm });
 }
 
 function chooseMidiPart(parts) {
@@ -2320,7 +2388,8 @@ function chooseMidiPart(parts) {
   select.replaceChildren(...parts.map(({ track, channel, name, notes }, index) => {
     const option = document.createElement("option");
     option.value = index;
-    option.textContent = `音轨 ${track} · 通道 ${channel}${name ? " · " + name : ""} · ${notes.length} 音`;
+    option.textContent = tr("音轨 {track} · 通道 {channel} · {count} 音", { track, channel, count: notes.length }) +
+      (name ? " · " + name : "");
     return option;
   }));
   dialog.returnValue = "";
@@ -2333,7 +2402,10 @@ function chooseMidiPart(parts) {
 drawController();
 drawKeyboard();
 renderGuide();
-all("[data-listen]").forEach((button) => button.onclick = () => preview(Number(button.dataset.listen)));
+function bindPreviewButtons() {
+  all("[data-listen]").forEach((button) => button.onclick = () => preview(Number(button.dataset.listen)));
+}
+bindPreviewButtons();
 all("[data-pitch]").forEach((button) => button.onclick = () => enter(Number(button.dataset.pitch)));
 all("[data-duration]").forEach((button) => button.onclick = () => editRhythm("duration", Number(button.dataset.duration)));
 all("[data-transpose]").forEach((button) => button.onclick = () => transpose(Number(button.dataset.transpose)));
@@ -2365,7 +2437,7 @@ async function storeImportedScore(imported, filename) {
   });
   if (same) {
     if (!scoreFiles.some((entry) => entry.score.id === same.score.id)) addScoreFile(same);
-    toast("曲谱已在库中 · " + same.score.title);
+    toast(tr("曲谱已在库中") + " · " + scoreTitle(same.score));
     if (view === "library") renderLibrary();
     return;
   }
@@ -2378,10 +2450,10 @@ async function storeImportedScore(imported, filename) {
     if (scoreContents(entry.score) !== contents) entry = await writeScoreFile({ ...record, id: makeScore().id }, true);
     addScoreFile(entry);
     if (folderState !== "loading") folderState = "ready";
-    toast("已导入 · " + record.title);
+    toast(tr("已导入") + " · " + scoreTitle(record));
   } else {
     const stored = storeWebScore({ score: record, filename, status: "已导入曲谱" });
-    toast(stored ? "已导入 · " + record.title : "已导入 · 曲谱库仅保留到本次访问结束");
+    toast(tr("已导入") + " · " + (stored ? scoreTitle(record) : tr("曲谱库仅保留到本次访问结束")));
   }
   if (view === "library") renderLibrary();
 }
@@ -2396,26 +2468,26 @@ async function importScoreFile(file) {
       const midi = readMidiFile(await file.arrayBuffer());
       const part = await chooseMidiPart(midi.parts);
       if (!part) return;
-      const name = file.name.replace(/\.midi?$/i, "").trim() || "MIDI 曲谱";
+      const name = file.name.replace(/\.midi?$/i, "").trim() || tr("MIDI 曲谱");
       const suffix = midi.parts.length > 1 ? ` · ${part.track}.${part.channel}` : "";
       imported = { ...makeScore(), ...midiToScore(midi, part), title: name.slice(0, 32 - suffix.length) + suffix };
     } else {
       try {
         imported = parseScoreFile(await file.text());
       } catch {
-        throw new Error("请选择陶笛曲谱的 JSON 文件或 MIDI 文件。");
+        throw new Error(tr("请选择陶笛曲谱的 JSON 文件或 MIDI 文件。"));
       }
     }
     await storeImportedScore(imported, isMidi ? imported.title + ".json" : file.name);
   } catch (error) {
-    toast("导入失败：" + error.message);
+    toast(tr("导入失败") + " · " + error.message);
   } finally {
     button.disabled = false;
   }
 }
 
 function setupScoreRecognition() {
-  if (!localScoreService) return;
+  if (!useProjectFolder) return;
   const trigger = $("recognize-score");
   const dialog = $("recognition-dialog");
   const fileInput = $("recognition-file");
@@ -2437,7 +2509,7 @@ function setupScoreRecognition() {
   async function requestRecognition(suffix = "", options = {}) {
     const response = await fetch("/api/recognize-score" + suffix, { cache: "no-store", ...options });
     if (!response.headers.get("Content-Type")?.includes("application/json")) {
-      throw new Error("请通过项目的本地曲谱服务打开网页后再识别。");
+      throw new Error(tr("请通过项目的本地曲谱服务打开网页后再识别。"));
     }
     const result = await response.json();
     if (!response.ok) throw new Error(result.error);
@@ -2450,10 +2522,10 @@ function setupScoreRecognition() {
       const { engine } = await requestRecognition();
       ready = true;
       $("recognition-download").hidden = engine;
-      service.textContent = engine ? "" : "安装 Audiveris 后可识别 PDF 和图片。现在可以导入 MusicXML 或 MXL。";
+      service.textContent = engine ? "" : tr("安装 Audiveris 后可识别 PDF 和图片。现在可以导入 MusicXML 或 MXL。");
     } catch {
       ready = false;
-      service.textContent = "无法连接本地识谱服务。请用新版 server.py 启动项目后再试。";
+      service.textContent = tr("无法连接本地识谱服务。请用新版 server.py 启动项目后再试。");
     }
     updateControls();
   };
@@ -2467,12 +2539,12 @@ function setupScoreRecognition() {
     const file = fileInput.files[0];
     if (!file || !ready || busy) return;
     if (file.size > 24 * 1024 * 1024) {
-      status.textContent = "文件超过 24 MB，请缩小图片或拆分 PDF。";
+      status.textContent = tr("文件超过 24 MB，请缩小图片或拆分 PDF。");
       return;
     }
     recognized = null;
     busy = true;
-    status.textContent = "正在识别乐谱并检查声部与时值…";
+    status.textContent = tr("正在识别乐谱并检查声部与时值…");
     warnings.textContent = "";
     updateControls();
     try {
@@ -2482,9 +2554,10 @@ function setupScoreRecognition() {
       });
       const title = result.score.title && result.score.title !== "input" ? result.score.title : file.name.replace(/\.[^.]+$/, "");
       recognized = parseScoreFile(JSON.stringify({ ...makeScore(), ...result.score, title: title.trim().slice(0, 32) || "识别曲谱" }));
-      status.textContent = `${recognized.title} · 单声部 · ${recognized.bars.length} 小节 · 识别拍号 ${recognized.meter}`;
+      status.textContent = [recognized.title, tr("单声部"), barCount(recognized.bars.length),
+        tr("识别拍号 {meter}", { meter: recognized.meter })].join(" · ");
       warnings.textContent = result.warnings.length
-        ? [...result.warnings, "可先加入曲谱库，再在制谱页校对。"].join("\n")
+        ? [...result.warnings, tr("可先加入曲谱库，再在制谱页校对。")].join("\n")
         : "";
     } catch (error) {
       status.textContent = error.message;
@@ -2503,7 +2576,7 @@ function setupScoreRecognition() {
       fileInput.onchange();
       dialog.close();
     } catch (error) {
-      status.textContent = "加入曲谱库失败：" + error.message;
+      status.textContent = tr("加入曲谱库失败") + " · " + error.message;
     } finally {
       busy = false;
       updateControls();
@@ -2757,7 +2830,7 @@ function copyScoreNotes(event) {
   event.preventDefault();
   const cut = event.type === "cut";
   if (cut) removeNoteRange(range, true);
-  toast(`${cut ? "已剪切" : "已复制"} ${range.length} 个音符`);
+  toast(tr(cut ? "已剪切 {count} 个音符" : "已复制 {count} 个音符", { count: range.length }));
 }
 document.addEventListener("copy", copyScoreNotes);
 document.addEventListener("cut", copyScoreNotes);
@@ -2872,7 +2945,7 @@ document.addEventListener("keydown", (event) => {
     return;
   }
   if (event.key === " " && !modifier && !event.altKey && !event.defaultPrevented &&
-      !event.target.closest("#tap-tempo, #optimize-fingering, #note-annotation, .inspector-fingering") && $("insert-menu").hidden) {
+      !event.target.closest("#tap-tempo, #optimize-fingering, #note-annotation, .inspector-fingering, .preferences, .site-footer") && $("insert-menu").hidden) {
     event.preventDefault();
     if (!event.repeat) togglePlayback();
   }
@@ -2947,8 +3020,71 @@ function setupScoreHeight() {
   }).observe(notation);
 }
 
+function localizeLibraryLocation() {
+  $("library-location").textContent = tr(useProjectFolder ? "保存在项目根目录的「曲谱」文件夹" : "曲谱保存在此浏览器中");
+}
+
+function setupUiPreferences() {
+  const root = document.documentElement;
+  const theme = $("theme-toggle");
+  const language = $("language-toggle");
+  const updateButtons = () => {
+    const dark = root.dataset.theme === "dark";
+    const label = tr(dark ? "浅色模式" : "深色模式");
+    theme.title = label;
+    theme.setAttribute("aria-label", label);
+    theme.setAttribute("aria-pressed", dark);
+    theme.innerHTML = icon(dark ? "sun" : "moon");
+    language.lang = uiLanguage === "en" ? "zh-CN" : "en";
+    language.textContent = uiLanguage === "en" ? "中文" : "EN";
+    language.title = uiLanguage === "en" ? "切换到中文" : "Switch to English";
+    language.setAttribute("aria-label", language.title);
+  };
+  theme.onclick = () => {
+    root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
+    writePreference(themeKey, root.dataset.theme);
+    updateButtons();
+  };
+  language.onclick = () => {
+    commitTitle();
+    commitAuthor();
+    uiLanguage = uiLanguage === "en" ? "zh-CN" : "en";
+    writePreference(languageKey, uiLanguage);
+    const url = new URL(location.href);
+    if (url.searchParams.has("lang")) {
+      url.searchParams.set("lang", uiLanguage);
+      history.replaceState(history.state, "", url);
+    }
+    localizePage();
+    updateButtons();
+    $("title").value = $("title-width").textContent = scoreTitle(score);
+    $("toast").hidden = true;
+    $("tap-feedback").textContent = "";
+    closeFingeringEditor();
+    renderKeyOptions();
+    renderSwingValue();
+    renderSwingOptions();
+    renderPlayButton();
+    drawController();
+    updateGamepadStatus(...controllerStatus);
+    renderGuide();
+    bindPreviewButtons();
+    all("[data-duration]").forEach((button) => {
+      button.title = tr(durationNames[button.dataset.duration]);
+      button.setAttribute("aria-label", button.title);
+    });
+    all("[data-pitch]").forEach((button) => { button.title = pianoKeyTitle(Number(button.dataset.pitch)); });
+    localizeLibraryLocation();
+    renderControls();
+    renderNotation();
+    if (view === "library") renderLibrary();
+    document.dispatchEvent(new Event("ocarina-language-change"));
+  };
+  updateButtons();
+}
+
 setView("editor");
-$("library-location").textContent = useProjectFolder ? "保存在项目根目录的「曲谱」文件夹" : "曲谱保存在此浏览器中";
+localizeLibraryLocation();
 syncTools();
 refresh();
 setupVolume();
@@ -2957,6 +3093,7 @@ setupScoreHeight();
 setupScoreSharing();
 setupScoreRecognition();
 setupMidiInput();
+setupUiPreferences();
 $("pad-device").onclick = () => $("pad-device-dialog").showModal();
 readGamepad();
 if (useProjectFolder) void loadScoreFolder();

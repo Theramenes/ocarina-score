@@ -5,24 +5,29 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="编辑、播放和分享陶笛曲谱，支持时之笛重制版的手柄按键。">
   <title>时之笛 · 陶笛曲谱 | Ocarina Score</title>
-  <link rel="stylesheet" href="style.css?v=note-annotations">
+  <link rel="stylesheet" href="style.css?v=theme-language">
+  <script src="ui.js?v=theme-language" defer></script>
   <script src="notation-glyphs.js" defer></script>
-  <script src="midi-import.js?v=bpm320" defer></script>
+  <script src="midi-import.js?v=theme-language" defer></script>
   <script src="vendor/qrcode-generator-1.4.4.js" defer></script>
   <script src="vendor/jsqr-1.4.0.js" defer></script>
-  <script src="score-share.js?v=annotations-below" defer></script>
-  <script src="app.js?v=annotations-below" defer></script>
+  <script src="score-share.js?v=theme-language" defer></script>
+  <script src="app.js?v=theme-language" defer></script>
 </head>
 <body>
   <header class="topbar">
     <div class="top-inner">
-      <a class="brand" href="#editor"><span class="brand-mark" data-icon="ocarina"></span><span>时之笛 · 陶笛曲谱<small lang="en">Ocarina Score</small></span></a>
+      <a class="brand" href="#editor"><span class="brand-mark" data-icon="ocarina"></span><span><span class="brand-title" lang="zh-CN">时之笛 · 陶笛曲谱</span><small lang="en">Ocarina Score</small></span></a>
       <nav aria-label="主导航">
         <button class="nav-item active" data-view="editor"><i data-icon="music"></i>制谱</button>
         <button class="nav-item" data-view="guide"><i data-icon="book"></i>使用演奏说明</button>
         <button class="nav-item" data-view="library"><i data-icon="library"></i>曲谱库</button>
       </nav>
       <div class="top-actions">
+        <div class="preferences">
+          <button id="theme-toggle" type="button" class="header-control" aria-label="深色模式" aria-pressed="false"><i data-icon="moon"></i></button>
+          <button id="language-toggle" type="button" class="header-control" title="Switch to English" lang="en">EN</button>
+        </div>
         <button id="share-score" class="primary" type="button"><i data-icon="share"></i>分享曲谱</button>
         <button id="save" class="primary" type="button" title="选择 JSON 保存位置并更新曲谱库"><i data-icon="save"></i>保存谱子</button>
       </div>
@@ -212,6 +217,9 @@
     <p id="fingering-description" class="score-dialog-hint"></p>
     <div id="fingering-options" role="group" aria-label="可用按法"></div>
   </section>
+  <footer class="site-footer">
+    <a href="https://github.com/Theramenes/ocarina-score" target="_blank" rel="noopener noreferrer"><i data-icon="github"></i> GitHub</a>
+  </footer>
   <input id="score-file" type="file" accept=".json,.mid,.midi,.png,.jpg,.jpeg,.webp,.gif,.svg,application/json,audio/midi,audio/x-midi,application/x-midi,image/*" hidden>
   <dialog id="pad-device-dialog" class="score-dialog" aria-labelledby="pad-device-title">
     <form method="dialog" class="score-dialog-heading">
