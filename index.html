@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="编辑、播放和分享陶笛曲谱，支持时之笛重制版的手柄按键。">
+  <title>时之笛 · 陶笛曲谱 | Ocarina Score</title>
+  <link rel="stylesheet" href="style.css?v=note-annotations">
+  <script src="notation-glyphs.js" defer></script>
+  <script src="midi-import.js?v=bpm320" defer></script>
+  <script src="vendor/qrcode-generator-1.4.4.js" defer></script>
+  <script src="vendor/jsqr-1.4.0.js" defer></script>
+  <script src="score-share.js?v=annotations-below" defer></script>
+  <script src="app.js?v=annotations-below" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="top-inner">
+      <a class="brand" href="#editor"><span class="brand-mark" data-icon="ocarina"></span><span>时之笛 · 陶笛曲谱<small lang="en">Ocarina Score</small></span></a>
+      <nav aria-label="主导航">
+        <button class="nav-item active" data-view="editor"><i data-icon="music"></i>制谱</button>
+        <button class="nav-item" data-view="guide"><i data-icon="book"></i>使用演奏说明</button>
+        <button class="nav-item" data-view="library"><i data-icon="library"></i>曲谱库</button>
+      </nav>
+      <div class="top-actions">
+        <button id="share-score" class="primary" type="button"><i data-icon="share"></i>分享曲谱</button>
+        <button id="save" class="primary" type="button" title="选择 JSON 保存位置并更新曲谱库"><i data-icon="save"></i>保存谱子</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="editor">
+    <div class="project">
+      <div>
+        <div class="title-line"><div class="title-field"><span id="title-width" aria-hidden="true"></span><input id="title" aria-label="曲谱名称" maxlength="32"></div><button id="rename" class="icon-button" aria-label="重命名" title="重命名"><i data-icon="pencil"></i></button></div>
+        <label class="project-author" for="author"><span>制作者</span><input id="author" type="text" maxlength="32"></label>
+      </div>
+      <div class="project-actions">
+        <span id="save-status" role="status"></span>
+        <button id="new" class="secondary"><i data-icon="plus"></i>新建曲谱</button>
+      </div>
+    </div>
+
+    <div class="workspace">
+      <div class="editor-column">
+        <section class="card score-card" aria-label="曲谱编辑器">
+          <div class="score-top">
+            <div class="score-heading"><h2>曲谱编辑</h2><span id="measure-count"></span></div>
+            <div class="segmented" aria-label="谱面视图">
+              <button data-display="both" aria-pressed="true">双谱</button>
+              <button data-display="staff" aria-pressed="false">五线谱</button>
+              <button data-display="buttons" aria-pressed="false">按键谱</button>
+            </div>
+          </div>
+          <div class="settings song-settings" role="group" aria-label="曲谱和播放设置">
+            <label>调号<select id="key" aria-label="调号"></select></label>
+            <label>拍号<select id="meter" aria-label="拍号"><option>4/4</option><option>3/4</option><option>2/4</option><option>6/8</option></select></label>
+            <div class="tempo-setting">
+              <label class="bpm-field">速度<input id="bpm" type="number" min="30" max="320" aria-label="速度（BPM）"> BPM</label>
+              <button id="tap-tempo" class="tap-tempo" type="button" title="每拍点一下，至少 3 下。手柄可按 + 键打拍。" aria-label="Tap Tempo" aria-describedby="tap-feedback">Tap</button>
+              <span id="tap-feedback" class="tap-feedback" role="status"></span>
+            </div>
+            <label class="settings-divider"><i data-icon="repeat"></i>循环<select id="loop" aria-label="循环"><option value="off">关闭</option><option value="all">全曲</option><option value="section">所选小节</option></select></label>
+            <span id="loop-range" hidden><select id="loop-start" aria-label="循环起始小节"></select>–<select id="loop-end" aria-label="循环结束小节"></select></span>
+            <div class="swing-setting">
+              <span id="swing-label">Swing</span>
+              <button id="swing" type="button" aria-labelledby="swing-label swing-value" aria-haspopup="dialog" aria-controls="swing-dialog">
+                <span id="swing-value">直拍</span><i data-icon="chevron-down"></i>
+              </button>
+            </div>
+          </div>
+          <div class="toolbar" aria-label="制谱工具">
+            <div class="tool-group" id="durations" aria-label="音符时值"></div>
+            <div class="tool-group">
+              <button class="tool" id="dot" title="附点" aria-label="附点">·</button>
+              <button class="tool" id="tie" title="将当前拍位延音至前一个音符" aria-label="延音"><i data-icon="tie"></i></button>
+              <button class="tool" id="rest" title="休止符" aria-label="休止符"><i data-icon="rest"></i></button>
+              <button class="tool" id="triplet" title="三连音" aria-label="三连音"><i data-icon="triplet"></i></button>
+              <button class="tool" id="note-annotation" type="button" title="音符备注" aria-label="音符备注" aria-haspopup="dialog" aria-controls="note-annotation-dialog">TXT</button>
+            </div>
+            <div class="tool-group history">
+              <button class="secondary optimize-fingering" id="optimize-fingering" type="button" title="优化整首曲谱的换键，支持撤销"><i data-icon="pad"></i><span>自动优化按法</span></button>
+              <button class="icon-button" id="undo" aria-label="撤销" title="撤销（Ctrl+Z）"><i data-icon="undo"></i></button>
+              <button class="icon-button" id="redo" aria-label="重做" title="重做（Ctrl+Shift+Z）"><i data-icon="redo"></i></button>
+            </div>
+          </div>
+          <div class="bar-status"><span id="bar-number"></span><strong id="bar-duration"></strong><span id="bar-warning" role="status"></span><span id="entry-duration"></span></div>
+          <div id="notation" class="notation" aria-label="谱面" tabindex="0"></div>
+          <div id="score-resize" class="score-resize" role="separator" tabindex="0" aria-orientation="horizontal" aria-controls="notation" aria-label="调整谱面高度" aria-valuemin="160" aria-valuemax="1600" title="上下拖动或按 ↑ / ↓ 调整高度，双击恢复默认">
+            <span aria-hidden="true">拖动调整高度</span>
+          </div>
+          <div id="insert-menu" role="group" aria-label="谱面操作" hidden>
+            <button id="context-insert-before" type="button">在光标前插入</button>
+            <button id="context-insert" type="button">在光标后插入 <kbd>Insert</kbd></button>
+            <button id="context-fingering" type="button" aria-haspopup="dialog">编辑按键 <i data-icon="pad"></i></button>
+            <button id="context-insert-measure" type="button" title="在当前小节后插入空小节">插入小节 <i data-icon="plus"></i></button>
+            <button id="context-delete-measure" type="button">删除小节 <i data-icon="delete"></i></button>
+          </div>
+        </section>
+        <section class="card transport" aria-label="回放">
+          <button id="restart" class="icon-button" title="回到开头" aria-label="回到开头"><i data-icon="skip"></i></button>
+          <button id="play" class="play" aria-label="播放" title="播放（空格）"><i data-icon="play"></i></button>
+          <output id="time">0:00 / 0:00</output>
+          <progress id="progress" max="100" value="0" aria-label="谱面播放位置"></progress>
+          <label class="volume-control" title="总音量 · 曲谱、手柄与 MIDI">
+            <i data-icon="volume" aria-hidden="true"></i>
+            <input id="volume" type="range" min="0" max="100" value="100" aria-label="总音量">
+            <output id="volume-value" for="volume">100%</output>
+          </label>
+        </section>
+        <section class="card input-card" aria-label="音高输入">
+          <div class="input-top">
+            <div class="input-heading"><i data-icon="keys"></i><h2>音高输入</h2><span>F3–B5</span></div>
+            <div class="input-connections"><span class="keyboard-hint">灰键可输入 · 游戏无对应按法</span><button id="midi-connect" class="secondary device-button" type="button">连接 MIDI</button></div>
+          </div>
+          <div class="midi-settings" id="midi-settings" hidden>
+            <select id="midi-device" aria-label="MIDI 输入设备" hidden></select>
+            <select id="midi-mode" aria-label="MIDI 输入方式" hidden><option value="preview">试听</option><option value="score">写入谱面</option></select>
+            <span id="midi-status" role="status"></span>
+          </div>
+          <div class="input-body">
+            <div id="keyboard" aria-label="钢琴键盘"></div>
+            <button id="delete" class="delete" title="转为等时值休止符（Delete / Backspace）"><i data-icon="delete"></i><span>转为休止</span></button>
+          </div>
+        </section>
+      </div>
+
+      <aside class="sidebar">
+        <section class="card reference">
+          <div class="side-title"><span class="side-icon"><i data-icon="pad"></i></span><div><h2>手柄按键</h2><p>Nintendo Switch 2 Pro Controller</p></div></div>
+          <div class="pad-status"><p id="pad-state" role="status"></p><button id="pad-device" class="secondary device-button" type="button" aria-haspopup="dialog">设备</button></div>
+          <div class="pad-figure" id="pad-figure"></div>
+          <div class="natural-keys" id="natural-keys"></div>
+          <div class="modifiers">
+            <h3>变音操作</h3>
+            <div><span class="mod-icon" data-bend-example="dpad"></span><span>十字键 ↑ / ↓</span><strong>±1 半音</strong></div>
+            <div><span class="mod-icon" data-bend-example="stick"></span><span>左摇杆 ↑ / ↓</span><strong>±2 半音</strong></div>
+            <div><span class="mod-icon combined" data-bend-example="both"></span><span>同向同时输入</span><strong>±3 半音</strong></div>
+          </div>
+          <button class="guide-link" data-view="guide">查看使用演奏说明<i data-icon="arrow-right"></i></button>
+        </section>
+        <section class="card inspector">
+          <div class="inspector-heading"><h2>当前音符</h2><span id="position"></span></div>
+          <div id="inspector-detail"></div>
+        </section>
+        <section class="card inspector transpose">
+          <h2>整谱移调</h2>
+          <p>同时更新音高与调号</p>
+          <div><button class="secondary" data-transpose="-1">− 半音</button><button class="secondary" data-transpose="1">+ 半音</button></div>
+        </section>
+      </aside>
+    </div>
+  </main>
+  <main id="guide" class="sub-page" hidden>
+    <div class="project"><div><h1>使用演奏说明</h1><p>时之笛重制版 <span>·</span> Nintendo Switch 2</p></div><button class="secondary" data-view="editor"><i data-icon="back"></i>返回制谱</button></div>
+    <section class="card guide-card editor-guide">
+      <h2>制谱与手柄吹奏</h2>
+      <ul>
+        <li>点击两个音符之间选中较近的音符。小节有剩余拍数时，点击末音后的空白可以续写。</li>
+        <li>用 ← / → 移动光标。末音处按 → 会打开尾部空档，再按 → 进入下一小节。谱末空小节随时可进入。</li>
+        <li>右键可选择「在光标前插入」或「在光标后插入」。按 Insert 也可在光标后打开空档。按 Enter 写入休止符，或用琴键输入音高。</li>
+        <li>按住一个音符拖到另一个音符可选中整段。用 Ctrl+C 复制、Ctrl+X 剪切，再按 Ctrl+V 粘到当前小节的光标后，或从待输入框开始填入。剪切可撤销。</li>
+        <li>拖选多个音符后，点击时值、附点或三连音，可一次修改整个选区。</li>
+        <li>多选时按 Delete 或 Backspace 一次移除全部选中音符。单选时先转成等时值休止符，再按一次移除休止符。光标在空小节时可删除该小节。</li>
+        <li>右键小节可在它后面插入空小节，也可删除整个小节。两项操作都可以撤销。</li>
+        <li>点「延音」让当前拍位承接前一个音的音高。已有符号保留自己的时值，空档采用当前输入时值。</li>
+        <li>同一个音有多种按法时，可点「当前音符」里的手柄按键，或右键音符选「编辑按键」。</li>
+        <li>拖选一段音符后，点「优化所选按法」只优化选区。清除选区后可用「自动优化按法」优化整曲。</li>
+        <li>移回编辑过的调时，音符会恢复之前在该音高选过的按法。手动选择和自动优化的结果都会随曲谱保存。</li>
+        <li>按空格从制谱光标所在的拍位开始播放，再按空格停止。欠拍或超拍的小节用红色五线谱线标出。</li>
+        <li>顶部的 Swing 设置整曲播放时的节奏。工具栏的三连音用于在谱面上写入三连音。</li>
+        <li>跟着节奏每拍点一次「Tap」，或按手柄的 ＋ 键。点满三下后会自动填写 BPM。</li>
+        <li>将手柄连接到电脑，点击网页启用声音。按住手柄键即可吹奏，松开停声。点手柄按键区的「设备」查看当前使用的手柄。</li>
+        <li>插入 MIDI 键盘后，点「连接 MIDI」并允许浏览器访问。选择「写入谱面」后，每次按键按已选时值录入，并移动光标。「试听」可和曲谱同时播放，总音量也控制 MIDI 的声音。</li>
+      </ul>
+    </section>
+    <section class="card guide-card">
+      <h2>音高与按键对照</h2>
+      <p>自由吹奏时，先按住变音键或推住左摇杆，再按主键。点击音名试听。</p>
+      <div id="guide-table"></div>
+      <a class="guide-link source" target="_blank" rel="noreferrer" href="https://github.com/diacoviello/LoZ-Ocarina-Note-Charts#quick-reference">查看原始对照表 <i data-icon="external"></i></a>
+    </section>
+  </main>
+  <main id="library" class="sub-page" hidden>
+    <div class="project">
+      <div><h1>曲谱库</h1><p id="library-location"></p></div>
+      <div class="project-actions">
+        <button class="secondary" data-view="editor"><i data-icon="back"></i>返回制谱</button>
+        <button class="secondary" id="recognize-score" type="button" hidden><i data-icon="music"></i>识别乐谱</button>
+        <button class="primary" id="import-score" type="button"><i data-icon="import"></i>导入曲谱</button>
+      </div>
+    </div>
+    <div class="library-sections">
+      <section class="library-group" aria-labelledby="personal-library-title">
+        <h2 id="personal-library-title">我的曲谱</h2>
+        <div class="library-list" id="library-list"></div>
+      </section>
+      <section class="library-group" aria-labelledby="built-in-title">
+        <div class="library-heading">
+          <h2 id="built-in-title">内置曲谱</h2>
+          <a class="library-source" href="https://www.nintendo.com/jp/games/switch2/aa9ja/melody/index.html" target="_blank" rel="noreferrer">任天堂官方乐谱 <i data-icon="external"></i></a>
+        </div>
+        <div class="library-list" id="built-in-list"></div>
+      </section>
+    </div>
+  </main>
+  <section id="fingering-panel" class="card" role="dialog" aria-labelledby="fingering-heading" hidden>
+    <div id="fingering-handle" class="score-dialog-heading" title="拖动移动按法面板">
+      <h2 id="fingering-heading">编辑按键</h2>
+      <button id="close-fingering" class="icon-button" aria-label="关闭按法选择" type="button"><i data-icon="close"></i></button>
+    </div>
+    <p id="fingering-description" class="score-dialog-hint"></p>
+    <div id="fingering-options" role="group" aria-label="可用按法"></div>
+  </section>
+  <input id="score-file" type="file" accept=".json,.mid,.midi,.png,.jpg,.jpeg,.webp,.gif,.svg,application/json,audio/midi,audio/x-midi,application/x-midi,image/*" hidden>
+  <dialog id="pad-device-dialog" class="score-dialog" aria-labelledby="pad-device-title">
+    <form method="dialog" class="score-dialog-heading">
+      <h2 id="pad-device-title">手柄设备</h2>
+      <button class="icon-button" aria-label="关闭手柄设备" type="submit"><i data-icon="close"></i></button>
+    </form>
+    <p id="pad-device-list" class="score-dialog-hint" role="status"></p>
+  </dialog>
+  <dialog id="note-annotation-dialog" class="score-dialog" aria-labelledby="note-annotation-heading">
+    <form method="dialog">
+      <div class="score-dialog-heading">
+        <h2 id="note-annotation-heading">音符备注</h2>
+        <button id="close-note-annotation" class="icon-button" type="button" aria-label="关闭音符备注"><i data-icon="close"></i></button>
+      </div>
+      <label for="note-annotation-text">备注文字</label>
+      <input id="note-annotation-text" type="text" maxlength="80" autocomplete="off" autofocus>
+      <div class="dialog-actions">
+        <button id="remove-note-annotation" class="secondary" type="button">删除备注</button>
+        <button class="primary" type="submit">确定</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="swing-dialog" class="score-dialog" aria-labelledby="swing-heading">
+    <form method="dialog">
+      <div class="score-dialog-heading">
+        <h2 id="swing-heading">Swing 节奏</h2>
+        <button class="icon-button" aria-label="关闭 Swing 设置" type="submit" value="cancel"><i data-icon="close"></i></button>
+      </div>
+      <p id="swing-hint" class="score-dialog-hint">选择连续八分或十六分音符的播放节奏。</p>
+      <div id="swing-options" role="radiogroup" aria-labelledby="swing-heading" aria-describedby="swing-hint"></div>
+      <div class="dialog-actions">
+        <button class="secondary" type="submit" value="cancel">取消</button>
+        <button class="primary" type="submit" value="apply">确定</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="recognition-dialog" class="score-dialog" aria-labelledby="recognition-heading">
+    <form method="dialog" class="score-dialog-heading">
+      <h2 id="recognition-heading">识别乐谱</h2>
+      <button class="icon-button" aria-label="关闭乐谱识别" type="submit"><i data-icon="close"></i></button>
+    </form>
+    <p class="score-dialog-hint"><strong>请提供单声部、单旋律的五线谱。</strong>检测到多个分谱、谱表、声部或和弦时，会提示先分离出一条旋律。</p>
+    <form id="recognition-form">
+      <label for="recognition-file">选择 PDF 或谱面图片</label>
+      <input id="recognition-file" type="file" accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.musicxml,.xml,.mxl" required disabled>
+      <p class="score-dialog-hint">也可选择 MusicXML 或 MXL，文件上限 24 MB。</p>
+      <button id="run-recognition" class="secondary" type="submit" disabled><i data-icon="music"></i>开始识别</button>
+    </form>
+    <p id="recognition-service" class="score-dialog-hint"></p>
+    <p id="recognition-result" class="score-dialog-hint" role="status"></p>
+    <p id="recognition-warnings" class="score-dialog-hint"></p>
+    <a id="recognition-download" class="library-source" href="https://github.com/Audiveris/audiveris/releases" target="_blank" rel="noreferrer" hidden>下载 Audiveris</a>
+    <div class="dialog-actions"><button id="accept-recognition" class="primary" type="button" disabled>加入曲谱库</button></div>
+  </dialog>
+  <dialog id="import-dialog" class="score-dialog" aria-labelledby="import-heading">
+    <form method="dialog" class="score-dialog-heading">
+      <h2 id="import-heading">导入曲谱</h2>
+      <button class="icon-button" aria-label="关闭导入" type="submit"><i data-icon="close"></i></button>
+    </form>
+    <button id="pick-score-file" class="secondary" type="button"><i data-icon="import"></i>选择文件</button>
+    <p class="score-dialog-hint">支持 JSON、MIDI 或带二维码的分享图。</p>
+    <form id="import-share-form">
+      <label for="import-share-code">分享码或链接</label>
+      <div class="share-field">
+        <input id="import-share-code" type="text" autocomplete="off" spellcheck="false" placeholder="在此粘贴" required>
+        <button class="secondary" type="submit">读取分享码</button>
+      </div>
+    </form>
+    <p id="import-share-status" class="score-dialog-hint" role="status"></p>
+    <div class="dialog-actions"><button id="accept-shared-score" class="primary" type="button" disabled>加入曲谱库</button></div>
+  </dialog>
+  <dialog id="share-dialog" class="score-dialog" aria-labelledby="share-heading">
+    <form method="dialog" class="score-dialog-heading">
+      <h2 id="share-heading">分享曲谱</h2>
+      <button class="icon-button" aria-label="关闭分享" type="submit"><i data-icon="close"></i></button>
+    </form>
+    <div id="share-preview" hidden><img alt="按键谱分享图预览"></div>
+    <p id="share-status" class="score-dialog-hint" role="status"></p>
+    <div id="share-copy-field" hidden>
+      <label id="share-copy-label" for="share-value">分享码</label>
+      <div class="share-field">
+        <input id="share-value" type="text" readonly>
+        <button id="copy-score-share" class="secondary" type="button">复制</button>
+      </div>
+    </div>
+    <div class="dialog-actions">
+      <button id="download-score-svg" class="secondary" type="button" disabled>下载 SVG</button>
+      <button id="download-score-png" class="primary" type="button" disabled>下载分享图</button>
+    </div>
+  </dialog>
+  <dialog id="midi-tracks" aria-labelledby="midi-track-heading">
+    <form method="dialog">
+      <h2 id="midi-track-heading">选择 MIDI 音轨</h2>
+      <p>导入单声部旋律。同时响起多个音时，保留最高音。</p>
+      <label for="midi-track">音轨</label>
+      <select id="midi-track"></select>
+      <div class="dialog-actions"><button class="secondary" value="cancel">取消</button><button class="primary" value="import">导入</button></div>
+    </form>
+  </dialog>
+  <dialog id="unsaved">
+    <form method="dialog">
+      <h2>当前曲谱有未保存的修改</h2>
+      <div class="dialog-actions"><button class="secondary" value="cancel">继续编辑</button><button class="secondary" value="discard">放弃修改</button><button class="primary" value="save">保存并继续</button></div>
+    </form>
+  </dialog>
+  <output id="toast" role="status" hidden></output>
+</body>
+</html>
