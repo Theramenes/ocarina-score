@@ -6,11 +6,10 @@ A single-melody score editor for the ocarina in *The Legend of Zelda: Ocarina of
 
 ## Features
 
-- Enter notes with the on-screen piano or a MIDI keyboard. Edit durations, rests, ties, triplets, and text annotations.
-- Convert pitches to in-game fingerings, choose alternate fingerings for the same pitch, or optimize a passage for easier transitions.
-- Play from the cursor with adjustable tempo, swing, looping, and master volume. Connect a controller to play along.
-- Import JSON, MIDI, a shared image with a QR code, or a share link. Saving exports a JSON file and adds the score to this browser’s library. Creator credits appear in the library and on shared images when provided.
-- Switch between light and dark themes and between English and Chinese from the header. The browser remembers your preferences.
+- **Score editing.** Edit with a Guitar Pro–style cursor. Change a note’s pitch or duration, insert notes before or after the cursor, or drag to select a passage for copying and pasting. Add rests, ties, triplets, and text annotations.
+- **Transposition and fingerings.** If notes fall outside the in-game ocarina’s range, transpose the score a semitone at a time to find a more playable key. The button chart updates as you transpose. Choose alternate fingerings by hand or optimize a passage for easier transitions.
+- **MIDI keyboards and controllers.** Use a MIDI keyboard to audition pitches or enter notes. Connect a controller to play with the in-game button layout, or start playback at the cursor and play along.
+- **Score library and sharing.** Open a built-in Ocarina of Time melody or keep your own scores in the library. Import JSON, MIDI, QR-code images, or share links. Save a score as JSON or export a button chart image to share.
 
 ## Getting started
 
