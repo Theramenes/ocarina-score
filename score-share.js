@@ -22,6 +22,7 @@ const shareExtendedNote = shareCompactBarEnd + 1;
 const shareNoteAnnotation = shareCompactBarEnd + 2;
 const shareSheetWidth = 1200;
 const shareQrBox = { x: 890, y: 270, size: 214 };
+const shareBendLegendHeight = 203;
 
 function shareBase64(bytes) {
   let binary = "";
@@ -330,6 +331,32 @@ function shareTripletBracket(first, last, y) {
   return `<path d="M${first} ${y + 6}v-6H${middle - 10}M${middle + 10} ${y}H${last}v6" fill="none" stroke="#465d4b" stroke-width="1.6"/><text x="${middle}" y="${y + 5}" text-anchor="middle" font-size="16" font-weight="700">3</text>`;
 }
 
+function shareBendLegend(y) {
+  const base = natural.find(({ code }) => code === "A");
+  const example = (x, center, stick, dpad) => badge(newNote(base.pitch + 2 * stick + dpad, 4, {
+    fingering: { code: base.code, stick, dpad }
+  }), x, center - 14, false);
+  const rows = [
+    [0, 1, "十字键 ↑ / ↓", "±1 半音"],
+    [1, 0, "左摇杆 ↑ / ↓", "±2 半音"],
+    [1, 1, "同向同时输入", "±3 半音"]
+  ].map(([stick, dpad, name, shift], index) => {
+    const center = y + 77 + index * 50;
+    return `<g>
+      ${example(884, center, stick, dpad)}${example(925, center, -stick, -dpad)}
+      <text x="965" y="${center - 3}" font-size="15" font-weight="600">${tr(name)}</text>
+      <text x="965" y="${center + 16}" font-size="14" fill="#646e5d">${tr(shift)}</text>
+    </g>`;
+  });
+  return `<g aria-label="${tr("变音图例")}">
+    <rect x="855" y="${y}" width="283" height="${shareBendLegendHeight}" rx="19" fill="#f6f7ee" stroke="#d8dfcb"/>
+    <text x="875" y="${y + 27}" font-size="21" font-weight="700">${tr("变音图例")}</text>
+    <text x="875" y="${y + 47}" font-size="13" fill="#646e5d">${tr("按键右侧的标记表示变音。")}</text>
+    <path d="M875 ${y + 102}H1118 M875 ${y + 152}H1118" fill="none" stroke="#d8dfcb"/>
+    ${rows.join("")}
+  </g>`;
+}
+
 function shareRhythmLegend(y, outOfRange) {
   const example = newNote(74);
   const label = (x, baseline, name, detail) => `<text x="${x}" y="${baseline}" font-size="17" font-weight="700">${name}</text>` +
@@ -418,7 +445,9 @@ function renderSharedScore(record, qr, publicLink) {
     rowY = y + rowHeight + annotationHeight;
     return drawing.join("") + `<path d="M62 ${rowY - 4}H817" stroke="#d8dbcb"/>`;
   }).join("");
-  const legendY = Math.max(603, rowY) + 15;
+  const qrCardHeight = qr ? 324 : 131;
+  const bendY = 211 + qrCardHeight + 14;
+  const legendY = Math.max(bendY + shareBendLegendHeight, rowY) + 15;
   const height = legendY + (outOfRange ? 278 : 244);
   const title = scoreTitle(record);
   const { x, y, size } = shareQrBox;
@@ -430,12 +459,11 @@ function renderSharedScore(record, qr, publicLink) {
   ${record.author ? `<text x="62" y="157" font-size="15" fill="#dbd7be">${tr("制作者")} ${shareEscape(record.author)}</text>` : ""}
   <text x="1139" y="99" text-anchor="end" font-size="26" font-weight="700" fill="#fff5da">${record.meter} · ${record.bpm} BPM</text><text x="1139" y="131" text-anchor="end" font-size="16" fill="#dbd7be">Nintendo Switch 2</text>
   <text x="62" y="226" font-size="24" font-weight="700">${tr("按键谱")}</text><text x="817" y="225" text-anchor="end" font-size="15" fill="#646e5d">${barCount(record.bars.length)}</text>${notation}
-  <rect x="855" y="211" width="283" height="380" rx="19" fill="#eff2e6" stroke="#d8dfcb"/>
+  <rect x="855" y="211" width="283" height="${qrCardHeight}" rx="19" fill="#eff2e6" stroke="#d8dfcb"/>
   <text x="996.5" y="250" text-anchor="middle" font-size="23" font-weight="700">${qr ? (publicLink ? tr("扫码打开曲谱") : tr("从图片导入")) : tr("分享曲谱")}</text>
-  ${qr ? drawShareQr(qr, `x="${x}" y="${y}" width="${size}" height="${size}"`) : `<text x="996.5" y="376" text-anchor="middle" font-size="16">${tr("谱面较长，请复制分享码")}</text>`}
-  <text x="996.5" y="515" text-anchor="middle" font-size="15" fill="#646e5d">${qr ? (publicLink ? tr("查看、播放或收藏") : tr("打开「导入曲谱」并选择此图")) : tr("也可以保存 JSON 文件")}</text>
-  ${modifierGlyph("stick", 1, 884, 537, 18)}<text x="911" y="552" font-size="15">${tr("右上角 · 左摇杆")}</text>
-  ${modifierGlyph("dpad", 1, 884, 565, 18)}<text x="911" y="580" font-size="15">${tr("右下角 · 十字键")}</text>
+  ${qr ? drawShareQr(qr, `x="${x}" y="${y}" width="${size}" height="${size}"`) : `<text x="996.5" y="284" text-anchor="middle" font-size="16">${tr("谱面较长，请复制分享码")}</text>`}
+  <text x="996.5" y="${qr ? 515 : 314}" text-anchor="middle" font-size="15" fill="#646e5d">${qr ? (publicLink ? tr("查看、播放或收藏") : tr("打开「导入曲谱」并选择此图")) : tr("也可以保存 JSON 文件")}</text>
+  ${shareBendLegend(bendY)}
   ${shareRhythmLegend(legendY, outOfRange)}</svg>`;
 }
 
