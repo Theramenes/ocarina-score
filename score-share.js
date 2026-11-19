@@ -20,6 +20,8 @@ const shareCommonPitchCount = 20;
 const shareCompactBarEnd = shareCommonRhythms.length * shareCommonPitchCount;
 const shareExtendedNote = shareCompactBarEnd + 1;
 const shareNoteAnnotation = shareCompactBarEnd + 2;
+const shareSheetWidth = 1200;
+const shareQrBox = { x: 890, y: 270, size: 214 };
 
 function shareBase64(bytes) {
   let binary = "";
@@ -419,8 +421,9 @@ function renderSharedScore(record, qr, publicLink) {
   const legendY = Math.max(603, rowY) + 15;
   const height = legendY + (outOfRange ? 278 : 244);
   const title = scoreTitle(record);
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="${height}" viewBox="0 0 1200 ${height}" font-family="DM Sans, Noto Sans SC, Microsoft YaHei, sans-serif" fill="#243c30">
-  <rect width="1200" height="${height}" fill="#eae7da"/><rect x="24" y="24" width="1152" height="${height - 48}" rx="24" fill="#fffdf4" stroke="#d7d4c4"/>
+  const { x, y, size } = shareQrBox;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${shareSheetWidth}" height="${height}" viewBox="0 0 ${shareSheetWidth} ${height}" font-family="DM Sans, Noto Sans SC, Microsoft YaHei, sans-serif" fill="#243c30">
+  <rect width="${shareSheetWidth}" height="${height}" fill="#eae7da"/><rect x="24" y="24" width="1152" height="${height - 48}" rx="24" fill="#fffdf4" stroke="#d7d4c4"/>
   <path d="M48 24H1152a24 24 0 0 1 24 24V177H24V48a24 24 0 0 1 24-24Z" fill="#193a2d"/><path d="M24 177h1152" stroke="#c3a365" stroke-width="2"/>
   <text x="62" y="67" font-size="17" font-weight="700" fill="#e8d4a1">${tr("陶笛曲谱")}</text>
   <text x="62" y="131" font-size="44" font-weight="700" fill="#fff5da"${title.length > 15 ? ' textLength="820" lengthAdjust="spacingAndGlyphs"' : ""}>${shareEscape(title)}</text>
@@ -429,7 +432,7 @@ function renderSharedScore(record, qr, publicLink) {
   <text x="62" y="226" font-size="24" font-weight="700">${tr("按键谱")}</text><text x="817" y="225" text-anchor="end" font-size="15" fill="#646e5d">${barCount(record.bars.length)}</text>${notation}
   <rect x="855" y="211" width="283" height="380" rx="19" fill="#eff2e6" stroke="#d8dfcb"/>
   <text x="996.5" y="250" text-anchor="middle" font-size="23" font-weight="700">${qr ? (publicLink ? tr("扫码打开曲谱") : tr("从图片导入")) : tr("分享曲谱")}</text>
-  ${qr ? drawShareQr(qr, 'x="890" y="270" width="214" height="214"') : `<text x="996.5" y="376" text-anchor="middle" font-size="16">${tr("谱面较长，请复制分享码")}</text>`}
+  ${qr ? drawShareQr(qr, `x="${x}" y="${y}" width="${size}" height="${size}"`) : `<text x="996.5" y="376" text-anchor="middle" font-size="16">${tr("谱面较长，请复制分享码")}</text>`}
   <text x="996.5" y="515" text-anchor="middle" font-size="15" fill="#646e5d">${qr ? (publicLink ? tr("查看、播放或收藏") : tr("打开「导入曲谱」并选择此图")) : tr("也可以保存 JSON 文件")}</text>
   ${modifierGlyph("stick", 1, 884, 537, 18)}<text x="911" y="552" font-size="15">${tr("右上角 · 左摇杆")}</text>
   ${modifierGlyph("dpad", 1, 884, 565, 18)}<text x="911" y="580" font-size="15">${tr("右下角 · 十字键")}</text>
@@ -569,6 +572,8 @@ function setupScoreSharing() {
 
   const sharer = $("share-dialog");
   const preview = $("share-preview");
+  const expandQr = $("expand-share-qr");
+  const qrDialog = $("share-qr-dialog");
   const qrPreview = $("share-qr");
   const previewImage = preview.querySelector("img");
   const shareStatus = $("share-status");
@@ -579,6 +584,17 @@ function setupScoreSharing() {
   let shareRun = 0;
   let draft = null;
   let previewUrl = "";
+  const sheetPercent = (value) => `${value / shareSheetWidth * 100}%`;
+  expandQr.style.left = sheetPercent(shareQrBox.x);
+  // The SVG scales with image width, and percentage margins use that same width.
+  expandQr.style.marginTop = sheetPercent(shareQrBox.y);
+  expandQr.style.width = sheetPercent(shareQrBox.size);
+
+  expandQr.onclick = () => {
+    if (!draft?.qr) return;
+    qrPreview.innerHTML = drawShareQr(draft.qr, `role="img" aria-label="${tr("曲谱二维码")}"`);
+    qrDialog.showModal();
+  };
 
   $("share-score").onclick = async () => {
     if (!score.bars.some((bar) => bar.length)) { toast(tr("先输入音符或打开一份曲谱。")); return; }
@@ -596,16 +612,16 @@ function setupScoreSharing() {
       const qr = shareQr(value);
       const svg = renderSharedScore(record, qr, true);
       const svgBlob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
-      draft = { title: record.title, svg, svgBlob };
+      draft = { title: record.title, svg, svgBlob, qr };
       previewUrl = URL.createObjectURL(svgBlob);
       previewImage.src = previewUrl;
       preview.hidden = copyField.hidden = false;
-      qrPreview.innerHTML = qr ? drawShareQr(qr, `role="img" aria-label="${tr("曲谱二维码")}"`) : "";
-      qrPreview.hidden = !qr;
+      preview.scrollTop = 0;
+      expandQr.hidden = !qr;
       $("share-copy-label").textContent = tr("分享链接");
       shareValue.value = value;
       downloadSvg.disabled = downloadPng.disabled = false;
-      shareStatus.textContent = qr ? tr("手机扫码即可打开曲谱。") :
+      shareStatus.textContent = qr ? tr("点击谱图里的二维码可放大。") :
         tr("曲谱较长，放不进一张二维码。请复制分享内容，或使用 JSON 曲谱文件。");
     } catch {
       if (run === shareRun && sharer.open) shareStatus.textContent = tr("生成分享图失败。可以用「保存谱子」导出曲谱文件。");
@@ -614,12 +630,13 @@ function setupScoreSharing() {
   sharer.addEventListener("close", () => {
     shareRun++;
     draft = null;
+    if (qrDialog.open) qrDialog.close();
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     previewUrl = "";
     previewImage.removeAttribute("src");
     qrPreview.replaceChildren();
     shareValue.value = "";
-    preview.hidden = copyField.hidden = qrPreview.hidden = true;
+    preview.hidden = copyField.hidden = expandQr.hidden = true;
     downloadSvg.disabled = downloadPng.disabled = true;
   });
   $("copy-score-share").onclick = async () => {

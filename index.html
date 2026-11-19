@@ -6,14 +6,14 @@
   <meta name="description" content="编辑、播放和分享陶笛曲谱，支持时之笛重制版的手柄按键。">
   <title>时之笛 · 陶笛曲谱 | Ocarina Score</title>
   <link rel="icon" type="image/svg+xml" sizes="any" href="assets/favicon.svg">
-  <link rel="stylesheet" href="style.css?v=mobile-share">
-  <script src="ui.js?v=controller-auto" defer></script>
+  <link rel="stylesheet" href="style.css?v=share-qr-zoom">
+  <script src="ui.js?v=share-qr-zoom" defer></script>
   <script src="controller-input.js?v=controller-auto" defer></script>
   <script src="notation-glyphs.js" defer></script>
   <script src="midi-import.js?v=theme-language" defer></script>
   <script src="vendor/qrcode-generator-1.4.4.js" defer></script>
   <script src="vendor/jsqr-1.4.0.js" defer></script>
-  <script src="score-share.js?v=mobile-share" defer></script>
+  <script src="score-share.js?v=share-qr-zoom" defer></script>
   <script src="app.js?v=playback-follow-controller-auto" defer></script>
 </head>
 <body>
@@ -310,9 +310,11 @@
       <h2 id="share-heading">分享曲谱</h2>
       <button class="icon-button" aria-label="关闭分享" type="submit"><i data-icon="close"></i></button>
     </form>
-    <div class="share-media">
-      <div id="share-qr" hidden></div>
-      <div id="share-preview" hidden><img alt="按键谱分享图预览"></div>
+    <div id="share-preview" hidden>
+      <div class="share-sheet">
+        <img alt="按键谱分享图预览">
+        <button id="expand-share-qr" type="button" aria-label="放大二维码" title="放大二维码" aria-haspopup="dialog" aria-controls="share-qr-dialog" hidden></button>
+      </div>
     </div>
     <p id="share-status" class="score-dialog-hint" role="status"></p>
     <div id="share-copy-field" hidden>
@@ -326,6 +328,14 @@
       <button id="download-score-svg" class="secondary" type="button" disabled>下载 SVG</button>
       <button id="download-score-png" class="primary" type="button" disabled>下载分享图</button>
     </div>
+  </dialog>
+  <dialog id="share-qr-dialog" class="score-dialog" aria-labelledby="share-qr-heading">
+    <form method="dialog" class="score-dialog-heading">
+      <h2 id="share-qr-heading">曲谱二维码</h2>
+      <button class="icon-button" type="submit" aria-label="关闭二维码"><i data-icon="close"></i></button>
+    </form>
+    <div id="share-qr"></div>
+    <p class="score-dialog-hint">手机扫码即可打开曲谱。</p>
   </dialog>
   <dialog id="midi-tracks" aria-labelledby="midi-track-heading">
     <form method="dialog">

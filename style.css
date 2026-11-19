@@ -319,14 +319,15 @@ dialog::backdrop { background: #192b2166; }
 .share-field { display: flex; align-items: stretch; gap: 7px; }
 .share-field input { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--soft); }
 #share-dialog { width: min(830px, calc(100% - 24px)); max-height: calc(100dvh - 24px); overflow: auto; }
-.share-media { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 12px; }
-#share-qr { width: min(100%, 280px); justify-self: center; }
-#share-qr svg { display: block; width: 100%; height: auto; border-radius: 8px; }
-@media (min-width: 660px) {
-  .share-media:has(#share-qr:not([hidden])) { grid-template-columns: 248px minmax(0, 1fr); }
-}
 #share-preview { max-height: min(50vh, 520px); overflow: auto; border-radius: 9px; background: var(--bg); }
+.share-sheet { position: relative; }
 #share-preview img { display: block; width: 100%; height: auto; }
+#expand-share-qr { position: absolute; top: 0; aspect-ratio: 1; padding: 0; border-radius: 3px; cursor: zoom-in; }
+#expand-share-qr:hover, #expand-share-qr:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+#share-qr-dialog { width: min(440px, calc(100% - 24px)); max-height: calc(100dvh - 24px); }
+#share-qr { width: min(100%, max(140px, calc(100dvh - 150px))); margin-inline: auto; }
+#share-qr svg { display: block; width: 100%; height: auto; border-radius: 6px; }
+#share-qr-dialog .score-dialog-hint { text-align: center; margin-bottom: 0; }
 #midi-tracks { max-width: min(440px, calc(100vw - 34px)); }
 #midi-tracks p { color: var(--muted); font-size: 13px; margin: 7px 0 14px; }
 #midi-tracks select { display: block; width: 100%; margin-top: 5px; padding: 7px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); font: inherit; }
