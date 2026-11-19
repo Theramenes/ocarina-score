@@ -6,14 +6,15 @@
   <meta name="description" content="编辑、播放和分享陶笛曲谱，支持时之笛重制版的手柄按键。">
   <title>时之笛 · 陶笛曲谱 | Ocarina Score</title>
   <link rel="icon" type="image/svg+xml" sizes="any" href="assets/favicon.svg">
-  <link rel="stylesheet" href="style.css?v=theme-language">
-  <script src="ui.js?v=theme-language" defer></script>
+  <link rel="stylesheet" href="style.css?v=controller-calibration">
+  <script src="ui.js?v=controller-calibration" defer></script>
+  <script src="controller-input.js?v=controller-calibration" defer></script>
   <script src="notation-glyphs.js" defer></script>
   <script src="midi-import.js?v=theme-language" defer></script>
   <script src="vendor/qrcode-generator-1.4.4.js" defer></script>
   <script src="vendor/jsqr-1.4.0.js" defer></script>
   <script src="score-share.js?v=theme-language" defer></script>
-  <script src="app.js?v=theme-language" defer></script>
+  <script src="app.js?v=controller-calibration" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -177,6 +178,7 @@
         <li>顶部的 Swing 设置整曲播放时的节奏。工具栏的三连音用于在谱面上写入三连音。</li>
         <li>跟着节奏每拍点一次「Tap」，或按手柄的 ＋ 键。点满三下后会自动填写 BPM。</li>
         <li>将手柄连接到电脑，点击网页启用声音。按住手柄键即可吹奏，松开停声。点手柄按键区的「设备」查看当前使用的手柄。</li>
+        <li>如果手柄能识别但摇杆或十字键无效，打开「设备」，先松开手柄，再点对应方向的「校准」并操作该方向。也可展开「原始输入」查看浏览器收到的数据。</li>
         <li>插入 MIDI 键盘后，点「连接 MIDI」并允许浏览器访问。选择「写入谱面」后，每次按键按已选时值录入，并移动光标。「试听」可和曲谱同时播放，总音量也控制 MIDI 的声音。</li>
       </ul>
     </section>
@@ -228,6 +230,15 @@
       <button class="icon-button" aria-label="关闭手柄设备" type="submit"><i data-icon="close"></i></button>
     </form>
     <p id="pad-device-list" class="score-dialog-hint" role="status"></p>
+    <label for="controller-device">当前手柄</label>
+    <select id="controller-device" disabled></select>
+    <p class="controller-detected"><span>识别到的操作</span><output id="controller-detected" aria-live="off">—</output></p>
+    <h3 class="controller-section-title">摇杆与十字键</h3>
+    <p id="controller-calibration-status" class="score-dialog-hint" role="status"></p>
+    <div id="controller-bends" class="controller-bindings"></div>
+    <details class="controller-details"><summary>主键与 Tap</summary><div id="controller-main-buttons" class="controller-bindings"></div></details>
+    <details class="controller-details"><summary>原始输入</summary><pre id="controller-raw">—</pre><p class="score-dialog-hint">操作摇杆或十字键时，原始数值应有变化。如果一直不变，请在 Chrome 或 Edge 中重新连接手柄。</p></details>
+    <div class="dialog-actions"><button id="controller-cancel" class="secondary" type="button" hidden>取消校准</button><button id="controller-reset" class="secondary" type="button" disabled>恢复默认按键</button></div>
   </dialog>
   <dialog id="note-annotation-dialog" class="score-dialog" aria-labelledby="note-annotation-heading">
     <form method="dialog">

@@ -1945,8 +1945,6 @@ let padIndex = null;
 let previousPadButtons = [];
 let activePadButton = -1;
 let previousTapButton = false;
-const controllerButtons = [4, 5, 1, 2, 3];
-const controllerTapButton = 9;
 
 function createLivePitchInput() {
   let voice = null;
@@ -1984,8 +1982,12 @@ function updateGamepadStatus(message, devices = [], active) {
   if (status.textContent !== label) status.textContent = label;
   const deviceNames = devices.map((device) => {
     const name = device.id || tr("手柄 {number}", { number: device.index + 1 });
-    const state = device === active ? "正在使用" : device.mapping !== "standard" ? "未提供标准映射" : "";
-    return state ? name + " · " + tr(state) : name;
+    if (device === active) {
+      const mapping = Object.keys(controllerProfile(device)).length ? "已使用校准按键" :
+        device.mapping === "standard" ? "浏览器标准映射" : "可校准按键";
+      return [name, tr("当前设备"), tr(mapping)].join(" · ");
+    }
+    return device.mapping !== "standard" ? name + " · " + tr("未提供标准映射") : name;
   });
   const detail = deviceNames.join("\n") || label;
   if (list.textContent !== detail) list.textContent = detail;
@@ -2004,19 +2006,23 @@ function readGamepad() {
     updateGamepadStatus("此页面无法读取手柄，可在独立浏览器打开。");
     return;
   }
-  const device = devices.find((gamepad) => gamepad.mapping === "standard");
+  const device = devices.find((gamepad) => gamepad.index === preferredController) ??
+    devices.find((gamepad) => gamepad.mapping === "standard") ?? devices[0];
   const label = device
-    ? (audio?.state === "running" ? "手柄已连接 · 可直接吹奏" : "手柄已连接 · 点击网页启用声音")
+    ? (device.mapping !== "standard" && !Object.keys(controllerProfile(device)).length ? "手柄已连接 · 可校准按键" :
+      audio?.state === "running" ? "手柄已连接 · 可直接吹奏" : "手柄已连接 · 点击网页启用声音")
     : devices.length ? "已检测到手柄，但浏览器未提供标准映射" : "未检测到手柄 · 连接电脑后按任意键";
   updateGamepadStatus(label, devices, device);
-  if (device && !document.hidden && document.hasFocus()) {
-    const pressed = controllerButtons.map((button) => Boolean(device.buttons[button]?.pressed));
+  const controls = device && readControllerControls(device);
+  updateControllerPanel(device, devices, controls);
+  if (device && !controllerCalibration && !document.hidden && document.hasFocus()) {
+    const { pressed, stick, dpad } = controls;
     if (device.index !== padIndex) {
       activePadButton = -1;
       previousPadButtons = [];
       previousTapButton = false;
     }
-    const tapPressed = Boolean(device.buttons[controllerTapButton]?.pressed);
+    const tapPressed = controls.tap;
     if (tapPressed && !previousTapButton && view === "editor" && !document.querySelector("dialog[open]")) {
       registerTempoTap();
     }
@@ -2024,8 +2030,6 @@ function readGamepad() {
     const newest = pressed.findLastIndex((value, index) => value && !previousPadButtons[index]);
     if (newest >= 0) activePadButton = newest;
     if (!pressed[activePadButton]) activePadButton = pressed.findIndex(Boolean);
-    const stick = device.axes[1] < -.55 ? 1 : device.axes[1] > .55 ? -1 : 0;
-    const dpad = Number(Boolean(device.buttons[12]?.pressed)) - Number(Boolean(device.buttons[13]?.pressed));
     setControllerPitch(activePadButton < 0 ? null : natural[activePadButton].pitch + 2 * stick + dpad);
     padIndex = device.index;
     previousPadButtons = pressed;
@@ -3094,6 +3098,7 @@ setupScoreSharing();
 setupScoreRecognition();
 setupMidiInput();
 setupUiPreferences();
+setupControllerPanel();
 $("pad-device").onclick = () => $("pad-device-dialog").showModal();
 readGamepad();
 if (useProjectFolder) void loadScoreFolder();

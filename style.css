@@ -217,6 +217,17 @@ kbd { font: 600 11px "DM Sans", sans-serif; padding: 2px 4px; border: 1px solid 
 .pad-status { justify-content: space-between; margin-top: 8px; color: var(--muted); font-size: 11px; }
 .pad-status .device-button { flex: none; }
 #pad-device-list { white-space: pre-line; overflow-wrap: anywhere; }
+#pad-device-dialog { max-height: calc(100dvh - 32px); overflow: auto; }
+#controller-device { width: 100%; padding: 7px; background: var(--soft); border: 1px solid var(--line); border-radius: 6px; }
+.controller-detected { display: grid; gap: 4px; margin: 12px 0; font-size: 13px; color: var(--muted); }
+.controller-detected output { color: var(--green-dark); font-weight: 600; min-height: 20px; }
+.controller-section-title { font-size: 14px; margin-top: 12px; }
+.controller-bindings { display: grid; gap: 7px; margin-top: 9px; }
+.controller-binding { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px; font-size: 13px; }
+.controller-binding small { color: var(--muted); font-variant-numeric: tabular-nums; }
+.controller-details { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 13px; }
+.controller-details summary { cursor: pointer; color: var(--muted); }
+#controller-raw { overflow-wrap: anywhere; white-space: pre-wrap; max-height: 140px; overflow: auto; padding: 8px; border-radius: 6px; background: var(--soft); font-size: 12px; font-variant-numeric: tabular-nums; }
 .natural-keys { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
 .natural-keys button { display: grid; place-items: center; gap: 5px; border: 1px solid #eae4d4; background: #fbf8ee; border-radius: 8px; padding: 7px 0; font-size: 11px; font-weight: 700; }
 .natural-keys button:hover { background: var(--mint); }
