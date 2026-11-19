@@ -6,15 +6,15 @@
   <meta name="description" content="编辑、播放和分享陶笛曲谱，支持时之笛重制版的手柄按键。">
   <title>时之笛 · 陶笛曲谱 | Ocarina Score</title>
   <link rel="icon" type="image/svg+xml" sizes="any" href="assets/favicon.svg">
-  <link rel="stylesheet" href="style.css?v=controller-calibration">
-  <script src="ui.js?v=controller-calibration" defer></script>
+  <link rel="stylesheet" href="style.css?v=mobile-share">
+  <script src="ui.js?v=mobile-share" defer></script>
   <script src="controller-input.js?v=controller-calibration" defer></script>
   <script src="notation-glyphs.js" defer></script>
   <script src="midi-import.js?v=theme-language" defer></script>
   <script src="vendor/qrcode-generator-1.4.4.js" defer></script>
   <script src="vendor/jsqr-1.4.0.js" defer></script>
-  <script src="score-share.js?v=theme-language" defer></script>
-  <script src="app.js?v=controller-calibration" defer></script>
+  <script src="score-share.js?v=mobile-share" defer></script>
+  <script src="app.js?v=mobile-share" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -44,6 +44,7 @@
       </div>
       <div class="project-actions">
         <span id="save-status" role="status"></span>
+        <button id="add-open-shared-score" class="secondary" type="button" hidden>加入曲谱库</button>
         <button id="new" class="secondary"><i data-icon="plus"></i>新建曲谱</button>
       </div>
     </div>
@@ -170,6 +171,7 @@
         <li>拖选多个音符后，点击时值、附点或三连音，可一次修改整个选区。</li>
         <li>多选时按 Delete 或 Backspace 一次移除全部选中音符。单选时先转成等时值休止符，再按一次移除休止符。光标在空小节时可删除该小节。</li>
         <li>右键小节可在它后面插入空小节，也可删除整个小节。两项操作都可以撤销。</li>
+        <li>手机上长按谱面的音符或小节，可打开右键菜单。</li>
         <li>点「延音」让当前拍位承接前一个音的音高。已有符号保留自己的时值，空档采用当前输入时值。</li>
         <li>同一个音有多种按法时，可点「当前音符」里的手柄按键，或右键音符选「编辑按键」。</li>
         <li>拖选一段音符后，点「优化所选按法」只优化选区。清除选区后可用「自动优化按法」优化整曲。</li>
@@ -308,7 +310,10 @@
       <h2 id="share-heading">分享曲谱</h2>
       <button class="icon-button" aria-label="关闭分享" type="submit"><i data-icon="close"></i></button>
     </form>
-    <div id="share-preview" hidden><img alt="按键谱分享图预览"></div>
+    <div class="share-media">
+      <div id="share-qr" hidden></div>
+      <div id="share-preview" hidden><img alt="按键谱分享图预览"></div>
+    </div>
     <p id="share-status" class="score-dialog-hint" role="status"></p>
     <div id="share-copy-field" hidden>
       <label id="share-copy-label" for="share-value">分享码</label>

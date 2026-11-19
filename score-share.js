@@ -281,8 +281,18 @@ function shareQr(text) {
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) if (code.isDark(y, x)) path += `M${x + 4} ${y + 4}h1v1h-1z`;
   }
-  const extent = size + 8;
-  return `<svg x="890" y="270" width="214" height="214" viewBox="0 0 ${extent} ${extent}" shape-rendering="crispEdges"><rect width="${extent}" height="${extent}" fill="white"/><path d="${path}" fill="#18251f"/></svg>`;
+  return { path, extent: size + 8 };
+}
+
+function drawShareQr({ path, extent }, attributes) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" ${attributes} viewBox="0 0 ${extent} ${extent}" shape-rendering="crispEdges"><rect width="${extent}" height="${extent}" fill="white"/><path d="${path}" fill="#18251f"/></svg>`;
+}
+
+function scoreShareUrl(code) {
+  const local = ["127.0.0.1", "[::1]", "localhost"].includes(location.hostname);
+  const base = location.protocol === "https:" && !local ?
+    location.origin + location.pathname : "https://theramenes.github.io/ocarina-score/";
+  return base + (uiLanguage === "en" ? "?lang=en" : "") + "#" + code;
 }
 
 function shareTokens(bar, b, record) {
@@ -419,7 +429,7 @@ function renderSharedScore(record, qr, publicLink) {
   <text x="62" y="226" font-size="24" font-weight="700">${tr("按键谱")}</text><text x="817" y="225" text-anchor="end" font-size="15" fill="#646e5d">${barCount(record.bars.length)}</text>${notation}
   <rect x="855" y="211" width="283" height="380" rx="19" fill="#eff2e6" stroke="#d8dfcb"/>
   <text x="996.5" y="250" text-anchor="middle" font-size="23" font-weight="700">${qr ? (publicLink ? tr("扫码打开曲谱") : tr("从图片导入")) : tr("分享曲谱")}</text>
-  ${qr ?? `<text x="996.5" y="376" text-anchor="middle" font-size="16">${tr("谱面较长，请复制分享码")}</text>`}
+  ${qr ? drawShareQr(qr, 'x="890" y="270" width="214" height="214"') : `<text x="996.5" y="376" text-anchor="middle" font-size="16">${tr("谱面较长，请复制分享码")}</text>`}
   <text x="996.5" y="515" text-anchor="middle" font-size="15" fill="#646e5d">${qr ? (publicLink ? tr("查看、播放或收藏") : tr("打开「导入曲谱」并选择此图")) : tr("也可以保存 JSON 文件")}</text>
   ${modifierGlyph("stick", 1, 884, 537, 18)}<text x="911" y="552" font-size="15">${tr("右上角 · 左摇杆")}</text>
   ${modifierGlyph("dpad", 1, 884, 565, 18)}<text x="911" y="580" font-size="15">${tr("右下角 · 十字键")}</text>
@@ -559,6 +569,7 @@ function setupScoreSharing() {
 
   const sharer = $("share-dialog");
   const preview = $("share-preview");
+  const qrPreview = $("share-qr");
   const previewImage = preview.querySelector("img");
   const shareStatus = $("share-status");
   const copyField = $("share-copy-field");
@@ -581,20 +592,20 @@ function setupScoreSharing() {
     try {
       const code = await makeShareCode(record);
       if (run !== shareRun || !sharer.open) return;
-      const publicLink = location.protocol === "https:" && !["127.0.0.1", "[::1]", "localhost"].includes(location.hostname);
-      const languageQuery = uiLanguage === "en" ? "?lang=en" : "";
-      const value = publicLink ? location.origin + location.pathname + languageQuery + "#" + code : code;
+      const value = scoreShareUrl(code);
       const qr = shareQr(value);
-      const svg = renderSharedScore(record, qr, publicLink);
+      const svg = renderSharedScore(record, qr, true);
       const svgBlob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
       draft = { title: record.title, svg, svgBlob };
       previewUrl = URL.createObjectURL(svgBlob);
       previewImage.src = previewUrl;
       preview.hidden = copyField.hidden = false;
-      $("share-copy-label").textContent = publicLink ? tr("分享链接") : tr("分享码");
+      qrPreview.innerHTML = qr ? drawShareQr(qr, `role="img" aria-label="${tr("曲谱二维码")}"`) : "";
+      qrPreview.hidden = !qr;
+      $("share-copy-label").textContent = tr("分享链接");
       shareValue.value = value;
       downloadSvg.disabled = downloadPng.disabled = false;
-      shareStatus.textContent = qr ? (publicLink ? tr("手机扫码即可打开曲谱。") : tr("接收者可以选择分享图，或粘贴分享码导入。")) :
+      shareStatus.textContent = qr ? tr("手机扫码即可打开曲谱。") :
         tr("曲谱较长，放不进一张二维码。请复制分享内容，或使用 JSON 曲谱文件。");
     } catch {
       if (run === shareRun && sharer.open) shareStatus.textContent = tr("生成分享图失败。可以用「保存谱子」导出曲谱文件。");
@@ -606,8 +617,9 @@ function setupScoreSharing() {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     previewUrl = "";
     previewImage.removeAttribute("src");
+    qrPreview.replaceChildren();
     shareValue.value = "";
-    preview.hidden = copyField.hidden = true;
+    preview.hidden = copyField.hidden = qrPreview.hidden = true;
     downloadSvg.disabled = downloadPng.disabled = true;
   });
   $("copy-score-share").onclick = async () => {
@@ -633,13 +645,40 @@ function setupScoreSharing() {
     } finally { if (result === draft) downloadPng.disabled = false; }
   };
 
-  function receiveShareLink() {
+  const addOpenScore = $("add-open-shared-score");
+  addOpenScore.onclick = async () => {
+    commitTitle();
+    commitAuthor();
+    commitBpm();
+    const record = structuredClone(score);
+    addOpenScore.disabled = true;
+    try {
+      await storeImportedScore(record, record.title + ".json");
+      if (openedShareId === record.id) {
+        openedShareId = null;
+        updateStatus();
+      }
+    } catch (error) {
+      toast(tr("导入失败。") + error.message);
+    } finally {
+      addOpenScore.disabled = false;
+    }
+  };
+
+  let opening = 0;
+  async function receiveShareLink() {
+    const request = ++opening;
     const code = location.hash.slice(1);
     if (!sharePrefixes.some((prefix) => code.startsWith(prefix))) return;
-    if (sharer.open) sharer.close();
-    setView("library");
-    if (!importer.open) importer.showModal();
-    void prepareImport(() => code);
+    try {
+      const record = await readShareCode(code);
+      if (request !== opening) return;
+      if (sharer.open) sharer.close();
+      if (importer.open) importer.close();
+      switchScore(record, false, null, { shared: true });
+    } catch (error) {
+      if (request === opening) toast(error.message);
+    }
   }
   window.addEventListener("hashchange", receiveShareLink);
   receiveShareLink();

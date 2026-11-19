@@ -306,6 +306,7 @@ let folderState = useProjectFolder ? "loading" : "ready";
 let saving = false;
 let deletingScore = false;
 let webFile = activeWebEntry ?? null;
+let openedShareId = null;
 function restoreScore(record) {
   const restored = { ...makeScore(), ...structuredClone(record), author: normalizeAuthor(record.author) };
   restored.swing = normalizeSwing(restored.swing);
@@ -364,16 +365,19 @@ function toast(message) {
 }
 function updateStatus() {
   const saved = !isDirty();
+  const openedShare = openedShareId === score.id;
   const projectFile = useProjectFolder && scoreFiles.find((entry) => entry.score.id === score.id);
   let status = webFile?.status ?? "浏览器旧版备份";
   if (projectFile) status = "已保存到「曲谱」";
   if (isBuiltIn(score.id)) status = "内置曲谱";
   if (!saved) status = "未保存";
+  if (openedShare && !undoStack.length) status = "已打开分享曲谱";
   if (saving) status = "保存中…";
   $("save-status").textContent = tr(status);
   $("save-status").title = projectFile ? tr("曲谱 / {filename}", { filename: projectFile.filename }) : webFile?.filename ?? "";
   $("save-status").classList.toggle("saved", saved && Boolean(projectFile || webFile));
   $("save").disabled = saving;
+  $("add-open-shared-score").hidden = !openedShare || saved;
   $("undo").disabled = !undoStack.length;
   $("redo").disabled = !redoStack.length;
 }
@@ -605,9 +609,10 @@ function applyScore(next, saved) {
   syncTools();
   refresh();
 }
-function switchScore(next, saved, file = null) {
+function switchScore(next, saved, file = null, { shared = false } = {}) {
   const apply = () => {
     webFile = file;
+    openedShareId = shared ? next.id : null;
     applyScore(next, saved);
     if (saved) rememberActive(next.id);
     setView("editor");
@@ -2681,6 +2686,12 @@ const notationElement = $("notation");
 const rangeNoteSelector = ".target:not([data-slot])";
 let noteDrag = null;
 let ignoreDragClick = false;
+let noteHold = null;
+
+function cancelNoteHold() {
+  clearTimeout(noteHold?.timer);
+  noteHold = null;
+}
 
 function notationViewport() {
   const box = notationElement.getBoundingClientRect();
@@ -2760,12 +2771,25 @@ function trackNoteRange() {
 
 notationElement.addEventListener("pointerdown", (event) => {
   ignoreDragClick = false;
+  if (event.pointerType === "touch") {
+    cancelNoteHold();
+    if (!event.isPrimary || !event.target.closest("[data-measure]")) return;
+    const { target, pointerId, clientX, clientY } = event;
+    noteHold = { pointerId, clientX, clientY, timer: setTimeout(() => {
+      if (!target.isConnected) return;
+      ignoreDragClick = true;
+      openNotationMenu(target, clientX, clientY);
+    }, 500) };
+    return;
+  }
   if (event.pointerType !== "mouse" || event.button !== 0) return;
   const anchor = event.target.closest(rangeNoteSelector);
   if (anchor) noteDrag = { id: event.pointerId, anchor, x: event.clientX, y: event.clientY };
 });
 
 document.addEventListener("pointermove", (event) => {
+  if (noteHold?.pointerId === event.pointerId &&
+      Math.hypot(event.clientX - noteHold.clientX, event.clientY - noteHold.clientY) > 10) cancelNoteHold();
   const drag = noteDrag;
   if (drag?.id !== event.pointerId || !(event.buttons & 1) || !drag.anchor.isConnected) return;
   if (!drag.notes) {
@@ -2784,6 +2808,7 @@ document.addEventListener("pointermove", (event) => {
 });
 
 function finishNoteRange(event) {
+  if (noteHold?.pointerId === event.pointerId) cancelNoteHold();
   const drag = noteDrag;
   if (drag?.id !== event.pointerId) return;
   noteDrag = null;
@@ -2854,12 +2879,11 @@ document.addEventListener("paste", (event) => {
   pasteNotes(bars.map((bar) => bar.map(normalizeScoreNote)));
 });
 
-$("notation").oncontextmenu = (event) => {
-  const measure = event.target.closest("[data-measure]");
+function openNotationMenu(target, clientX, clientY) {
+  const measure = target.closest("[data-measure]");
   if (!measure) return;
-  event.preventDefault();
   const b = Number(measure.dataset.measure);
-  if (event.target.closest("[data-bar]")) selectFromEvent(event);
+  if (target.closest("[data-bar]")) selectFromEvent({ target });
   else if (b !== position.b) selectNote(b, 0, score.bars[b]?.length ? "" : "tail");
   const menu = $("insert-menu");
   const insertNote = $("context-insert");
@@ -2869,9 +2893,15 @@ $("notation").oncontextmenu = (event) => {
   const source = selectedFingeringSource();
   $("context-fingering").disabled = !source || (fingerings.get(source.pitch)?.length ?? 0) < 2;
   menu.hidden = false;
-  menu.style.left = Math.max(4, Math.min(event.clientX, innerWidth - menu.offsetWidth - 6)) + "px";
-  menu.style.top = Math.max(4, Math.min(event.clientY, innerHeight - menu.offsetHeight - 6)) + "px";
+  menu.style.left = Math.max(4, Math.min(clientX, innerWidth - menu.offsetWidth - 6)) + "px";
+  menu.style.top = Math.max(4, Math.min(clientY, innerHeight - menu.offsetHeight - 6)) + "px";
   (insertNote.disabled ? $("context-insert-measure") : insertNote).focus({ preventScroll: true });
+}
+notationElement.oncontextmenu = (event) => {
+  if (!event.target.closest("[data-measure]")) return;
+  event.preventDefault();
+  if (noteHold || event.pointerType === "touch" || event.sourceCapabilities?.firesTouchEvents) return;
+  openNotationMenu(event.target, event.clientX, event.clientY);
 };
 $("context-insert-before").onclick = () => openInsert(true);
 $("context-insert").onclick = () => openInsert();
@@ -2884,6 +2914,7 @@ $("context-fingering").onclick = () => {
 $("context-insert-measure").onclick = insertMeasure;
 $("context-delete-measure").onclick = deleteMeasure;
 document.addEventListener("pointerdown", (event) => {
+  if (noteHold && event.pointerId !== noteHold.pointerId) cancelNoteHold();
   if (!$("insert-menu").contains(event.target)) $("insert-menu").hidden = true;
   if (!event.target.closest("#fingering-panel, .inspector-fingering, #notation")) closeFingeringEditor();
 });
