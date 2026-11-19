@@ -77,6 +77,20 @@ function readControllerControls(device) {
   };
 }
 
+function chooseController(devices) {
+  const preferred = devices.find((device) => device.index === preferredController);
+  if (preferred) return preferred;
+  preferredController = null;
+
+  const current = devices.find((device) => device.index === activeController?.index && device.id === activeController.id);
+  const isPlaying = (device) => {
+    const { pressed, tap } = readControllerControls(device);
+    return tap || pressed.some(Boolean);
+  };
+  if (current && (controllerCalibration || isPlaying(current))) return current;
+  return devices.find(isPlaying) ?? current ?? devices.find((device) => device.mapping === "standard") ?? devices[0];
+}
+
 function controllerBindingText(binding) {
   if (binding.type === "button") return tr("按钮 {index}", { index: binding.index });
   if (binding.type === "hat") return tr("方向轴 {index} · {value}", { index: binding.index, value: binding.value.toFixed(2) });
@@ -181,9 +195,11 @@ function updateControllerPanel(device, devices, controls) {
   const signature = JSON.stringify([device && controllerProfileKey(device), devices.map((item) => [item.index, item.id])]);
   if (signature !== controllerPanelSignature) {
     controllerPanelSignature = signature;
-    $("controller-device").replaceChildren(...devices.map((item) => new Option(item.id || tr("手柄 {number}", { number: item.index + 1 }), item.index)));
-    $("controller-device").disabled = !devices.length;
-    if (device) $("controller-device").value = device.index;
+    const selector = $("controller-device");
+    selector.replaceChildren(new Option(tr("自动选择手柄"), ""),
+      ...devices.map((item) => new Option(item.id || tr("手柄 {number}", { number: item.index + 1 }), item.index)));
+    selector.disabled = !devices.length;
+    selector.value = preferredController ?? "";
     renderControllerBindings();
   }
   captureControllerBinding(device, now);
@@ -204,7 +220,7 @@ function updateControllerPanel(device, devices, controls) {
 function setupControllerPanel() {
   const dialog = $("pad-device-dialog");
   $("controller-device").onchange = (event) => {
-    preferredController = Number(event.target.value);
+    preferredController = event.target.value === "" ? null : Number(event.target.value);
     controllerCalibration = null;
     controllerFeedback = null;
     controllerPanelSignature = "";
@@ -229,6 +245,7 @@ function setupControllerPanel() {
   window.addEventListener("blur", cancelCapture);
   document.addEventListener("visibilitychange", () => { if (document.hidden) cancelCapture(); });
   document.addEventListener("ocarina-language-change", () => {
+    controllerPanelSignature = "";
     renderControllerBindings();
     renderControllerFeedback();
   });

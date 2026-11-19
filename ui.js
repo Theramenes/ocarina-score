@@ -8,6 +8,7 @@ const englishText = {
   "手柄已连接 · 可校准按键": "Controller connected · Calibration available",
   "如果手柄能识别但摇杆或十字键无效，打开「设备」，先松开手柄，再点对应方向的「校准」并操作该方向。也可展开「原始输入」查看浏览器收到的数据。": "If a controller is detected but its stick or D-pad does not work, open Devices. Release the controls, click Calibrate for a direction, then move or press that control. Raw input shows the data received by the browser.",
   "当前手柄": "Active controller",
+  "自动选择手柄": "Choose controller automatically",
   "识别到的操作": "Detected controls",
   "摇杆与十字键": "Stick and D-pad",
   "左摇杆 ↑": "Left stick ↑",

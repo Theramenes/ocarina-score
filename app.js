@@ -1804,7 +1804,7 @@ function showSounding() {
   soundingElement?.classList.add("sounding");
 }
 
-function updatePlayhead() {
+function updatePlayhead(realign = false) {
   const b = sounding?.b ?? playback?.bars.findIndex((bar) => bar.start <= offset && offset < bar.end);
   const layout = playback && playbackLayout[b];
   if (!layout) {
@@ -1821,22 +1821,36 @@ function updatePlayhead() {
   const start = sounding?.start ?? bar.contentEnd;
   const end = sounding?.end ?? bar.end;
   const progress = end > start ? Math.max(0, Math.min(1, (offset - start) / (end - start))) : 0;
-  const marker = $("notation").children[layout.row].lastElementChild;
+  const notation = $("notation");
+  const row = notation.children[layout.row];
+  const marker = row.lastElementChild;
   marker.setAttribute("transform", `translate(${from + (to - from) * progress} 0)`);
-  if (marker !== playheadElement) {
+  const changedRow = marker !== playheadElement;
+  if (changedRow) {
     playheadElement?.setAttribute("visibility", "hidden");
     marker.setAttribute("visibility", "visible");
     playheadElement = marker;
-    if (!sounding) revealNotationElement(marker);
+  }
+  if (changedRow || realign) {
+    const lastRow = playbackLayout[playback.bars.length - 1]?.row;
+    followPlaybackRow(notation, row, layout.row < lastRow ? row.nextElementSibling : null);
   }
 }
 
-function revealNotationElement(element) {
-  if (!element || view !== "editor") return;
-  const notation = $("notation");
-  const box = element.getBoundingClientRect();
-  const bounds = notation.getBoundingClientRect();
-  if (box.bottom > bounds.bottom || box.top < bounds.top) notation.scrollTop += box.top - bounds.top - 20;
+function followPlaybackRow(notation, row, nextRow) {
+  if (view !== "editor") return;
+  const paneTop = notation.getBoundingClientRect().top + notation.clientTop;
+  const visibleTop = Math.max(0, paneTop);
+  const visibleBottom = Math.min(innerHeight, paneTop + notation.clientHeight);
+  const height = visibleBottom - visibleTop;
+  if (height <= 0) return;
+
+  const { top, height: rowHeight } = row.getBoundingClientRect();
+  const centered = top - Math.max(0, (height - rowHeight) / 2);
+  const nextBottom = nextRow?.getBoundingClientRect().bottom ?? Infinity;
+  // If both rows fit, reserve space for the full next row before centering.
+  const target = nextBottom - top <= height ? Math.max(centered, nextBottom - height) : centered;
+  notation.scrollTop += target - visibleTop;
 }
 function pausePlayback() {
   if (playback) {
@@ -1876,7 +1890,6 @@ function tick() {
   if (active !== sounding) {
     sounding = active;
     showSounding();
-    revealNotationElement(soundingElement);
   }
   updatePlayhead();
   renderPlayback();
@@ -2011,8 +2024,7 @@ function readGamepad() {
     updateGamepadStatus("此页面无法读取手柄，可在独立浏览器打开。");
     return;
   }
-  const device = devices.find((gamepad) => gamepad.index === preferredController) ??
-    devices.find((gamepad) => gamepad.mapping === "standard") ?? devices[0];
+  const device = chooseController(devices);
   const label = device
     ? (device.mapping !== "standard" && !Object.keys(controllerProfile(device)).length ? "手柄已连接 · 可校准按键" :
       audio?.state === "running" ? "手柄已连接 · 可直接吹奏" : "手柄已连接 · 点击网页启用声音")
@@ -3051,7 +3063,7 @@ function setupScoreHeight() {
     if (notation.clientWidth !== width) {
       width = notation.clientWidth;
       renderNotation();
-    }
+    } else if (playback) updatePlayhead(true);
   }).observe(notation);
 }
 
