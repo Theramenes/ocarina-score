@@ -198,12 +198,21 @@ kbd { font: 600 11px "DM Sans", sans-serif; padding: 2px 4px; border: 1px solid 
 .piano.black.outside { background: #767e75; box-shadow: inset 0 -4px #545c52; }
 .piano:hover { outline: 1px solid #81947c; outline-offset: -2px; }
 .piano.midi-held { outline: 2px solid #b27d2a; outline-offset: -3px; color: #263729; background: #eac66d; box-shadow: inset 0 -4px #c39c4c; }
+#keyboard[data-pitch-display="relative"] .piano { padding-bottom: 13px; }
+.numbered-pitch { display: inline-flex; align-items: center; gap: 1px; line-height: 1; }
+.numbered-digit { position: relative; }
+.octave-dots { position: absolute; left: 50%; transform: translateX(-50%); display: grid; gap: 1px; }
+.octave-dots.above { bottom: calc(100% + 1px); }
+.octave-dots.below { top: calc(100% + 1px); }
+.octave-dots span { width: 2px; height: 2px; border-radius: 50%; background: currentColor; }
 .input-connections, .midi-settings, .pad-status { display: flex; align-items: center; gap: 8px; }
 .input-top { flex-wrap: wrap; }
-.input-connections { margin-left: auto; }
+.input-connections { margin-left: auto; min-width: 0; flex-wrap: wrap; justify-content: flex-end; }
+.pitch-display button { padding: 4px 7px; font-size: 11px; white-space: nowrap; }
 .device-button { min-height: 28px; padding: 4px 8px; font-size: 11px; }
 .midi-settings { flex-wrap: wrap; padding: 0 17px 10px; font-size: 12px; color: var(--muted); }
 .midi-settings select { min-height: 29px; max-width: 100%; padding: 3px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); }
+#midi-status .numbered-pitch { margin-block: 4px; }
 .keyboard-hint { font-size: 11px; color: var(--muted); }
 .delete { display: grid; place-content: center; justify-items: center; gap: 4px; width: 63px; border-radius: 8px; border: 1px solid var(--line); background: var(--cream); color: var(--muted); font-size: 11px; }
 .delete:not(:disabled):hover { background: #f3e2d9; color: #8c3b2d; }

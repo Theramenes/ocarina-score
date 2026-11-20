@@ -54,6 +54,8 @@ const natural = [
 ];
 const sharpNames = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
 const flatNames = ["C", "D♭", "D", "E♭", "E", "F", "G♭", "G", "A♭", "A", "B♭", "B"];
+const diatonicLetters = "CDEFGAB";
+const majorScale = [0, 2, 4, 5, 7, 9, 11];
 const keySignatures = {
   "C": "", "G": "F", "D": "FC", "A": "FCG", "E": "FCGD", "B": "FCGDA", "F♯": "FCGDAE", "C♯": "FCGDAEB",
   "F": "B", "B♭": "BE", "E♭": "BEA", "A♭": "BEAD", "D♭": "BEADG", "G♭": "BEADGC", "C♭": "BEADGCF"
@@ -86,6 +88,10 @@ const pianoPitches = Array.from({ length: 31 }, (_, index) => 53 + index);
 
 function pitchLabel(pitch, preferFlats = false) {
   return (preferFlats ? flatNames : sharpNames)[pitch % 12] + (Math.floor(pitch / 12) - 1);
+}
+
+function tonicPitch(key) {
+  return 60 + majorScale[diatonicLetters.indexOf(key[0])] + Number(key.endsWith("♯")) - Number(key.endsWith("♭"));
 }
 
 const fingerings = new Map(pitches.map((pitch) => {
@@ -852,10 +858,8 @@ function transpose(semitones) {
     toast(tr("移调超出可显示的音高范围。"));
     return;
   }
-  const root = sharpNames.includes(score.key) ? sharpNames.indexOf(score.key) : flatNames.indexOf(score.key);
-  const rootPitch = { "C♭": 11, "G♭": 6 }[score.key] ?? root;
   updateHistory(() => {
-    score.key = chromaticKeys[(rootPitch + semitones + 12) % 12];
+    score.key = chromaticKeys[(tonicPitch(score.key) + semitones) % 12];
     for (const note of soundingNotes) note.pitch += semitones;
   });
 }
@@ -1384,17 +1388,57 @@ function renderGuide() {
     '</tr></thead><tbody>' + rows.join("") + '</tbody></table>';
 }
 
+const pitchDisplayPreference = "ocarina-pitch-display-v1";
+let pitchDisplay = readPreference(pitchDisplayPreference) === "relative" ? "relative" : "absolute";
+let renderedPitchDisplay = "";
+
 function drawKeyboard() {
   const white = pianoPitches.filter((pitch) => pitchLabel(pitch).length === 2);
   const black = pianoPitches.filter((pitch) => pitchLabel(pitch).length === 3);
-  const key = (pitch, type, style = "") => '<button class="piano ' + type + (fingerings.has(pitch) ? "" : " outside") + '" data-pitch="' + pitch + '" title="' + pianoKeyTitle(pitch) + '" ' + style + '>' + pitchLabel(pitch) + '</button>';
+  const key = (pitch, type, style = "") => '<button type="button" class="piano ' + type + (fingerings.has(pitch) ? "" : " outside") + '" data-pitch="' + pitch + '" ' + style + '></button>';
   $("keyboard").innerHTML = white.map((pitch) => key(pitch, "white")).join("") + black.map((pitch) =>
     key(pitch, "black", 'style="left:' + (white.filter((value) => value < pitch).length * 100 / white.length) + '%"')
   ).join("");
 }
 
-function pianoKeyTitle(pitch) {
-  return pitchLabel(pitch) + (fingerings.has(pitch) ? "" : " · " + tr("无游戏按法"));
+function pitchInputLabel(pitch, absolute = pitchDisplay === "relative" ? spelling(pitch) : pitchLabel(pitch)) {
+  if (pitchDisplay === "absolute") return { html: absolute, text: absolute };
+  const distance = pitch - tonicPitch(score.key);
+  const octave = Math.floor(distance / 12);
+  const semitone = distance - octave * 12;
+  let degree = majorScale.indexOf(semitone);
+  let accidental = "";
+  if (degree === -1) {
+    const above = majorScale.indexOf(semitone + 1);
+    const upperLetter = diatonicLetters[(diatonicLetters.indexOf(score.key[0]) + above) % 7];
+    const flatten = spelling(pitch)[0] === upperLetter;
+    degree = flatten ? above : above - 1;
+    accidental = flatten ? "♭" : "♯";
+  }
+  const number = degree + 1;
+  const dots = octave ? `<span class="octave-dots ${octave > 0 ? "above" : "below"}">${"<span></span>".repeat(Math.abs(octave))}</span>` : "";
+  const html = `<span class="numbered-pitch" aria-hidden="true">${accidental}<span class="numbered-digit">${number}${dots}</span></span>`;
+  const register = octave ? " · " + tr("八度 {offset}", { offset: octave > 0 ? "+" + octave : "−" + Math.abs(octave) }) : "";
+  return { html, text: accidental + number + register + " · " + absolute };
+}
+
+function renderPitchInput() {
+  const state = [pitchDisplay, score.key, uiLanguage].join("/");
+  if (state === renderedPitchDisplay) return;
+  renderedPitchDisplay = state;
+  $("keyboard").dataset.pitchDisplay = pitchDisplay;
+  $("pitch-input-reference").textContent = pitchDisplay === "relative" ? `1 = ${score.key}4` : "F3–B5";
+  for (const button of all("button[data-pitch-display]")) {
+    button.setAttribute("aria-pressed", button.dataset.pitchDisplay === pitchDisplay);
+  }
+  for (const key of all("#keyboard [data-pitch]")) {
+    const pitch = Number(key.dataset.pitch);
+    const { html, text } = pitchInputLabel(pitch);
+    key.innerHTML = html;
+    key.title = text + (fingerings.has(pitch) ? "" : " · " + tr("无游戏按法"));
+    key.setAttribute("aria-label", key.title);
+  }
+  document.dispatchEvent(new Event("ocarina-pitch-labels-change"));
 }
 
 function rhythmText({ duration, dotted, triplet }) {
@@ -1604,6 +1648,7 @@ function refresh() {
   $("loop-end").value = Math.min(score.loopEnd, Math.max(0, score.bars.length - 1));
   renderNotation();
   renderControls();
+  renderPitchInput();
   renderPlayback();
 }
 
@@ -2076,6 +2121,7 @@ function setupMidiInput() {
   function showStatus(message) {
     statusMessage = message;
     status.textContent = tr(message);
+    status.removeAttribute("aria-label");
   }
 
   function refreshPitch() {
@@ -2086,7 +2132,12 @@ function setupMidiInput() {
     highlightedKey?.classList.add("midi-held");
     if (!input) return;
     showStatus("已连接");
-    if (pitch !== null) status.textContent = spelling(pitch) + (fingerings.has(pitch) ? "" : " · " + tr("无游戏按法"));
+    if (pitch !== null) {
+      const { html, text } = pitchInputLabel(pitch, spelling(pitch));
+      const unavailable = fingerings.has(pitch) ? "" : " · " + tr("无游戏按法");
+      status.innerHTML = html + unavailable;
+      status.setAttribute("aria-label", text + unavailable);
+    }
   }
 
   function stopNotes() {
@@ -2210,10 +2261,10 @@ function setupMidiInput() {
   };
   document.addEventListener("ocarina-language-change", () => {
     connect.textContent = tr(access ? "断开 MIDI" : "连接 MIDI");
-    status.textContent = tr(statusMessage);
-    if (held.size) refreshPitch();
+    if (!held.size) showStatus(statusMessage);
     for (const option of devices.options) option.textContent = access?.inputs.get(option.value)?.name || tr("MIDI 输入");
   });
+  document.addEventListener("ocarina-pitch-labels-change", () => { if (held.size) refreshPitch(); });
   window.addEventListener("blur", stopNotes);
   document.addEventListener("visibilitychange", () => { if (document.hidden) stopNotes(); });
 }
@@ -2428,6 +2479,11 @@ function bindPreviewButtons() {
 }
 bindPreviewButtons();
 all("[data-pitch]").forEach((button) => button.onclick = () => enter(Number(button.dataset.pitch)));
+all("button[data-pitch-display]").forEach((button) => button.onclick = () => {
+  pitchDisplay = button.dataset.pitchDisplay;
+  writePreference(pitchDisplayPreference, pitchDisplay);
+  renderPitchInput();
+});
 all("[data-duration]").forEach((button) => button.onclick = () => editRhythm("duration", Number(button.dataset.duration)));
 all("[data-transpose]").forEach((button) => button.onclick = () => transpose(Number(button.dataset.transpose)));
 all("[data-view]").forEach((button) => button.onclick = () => setView(button.dataset.view));
@@ -3120,7 +3176,7 @@ function setupUiPreferences() {
       button.title = tr(durationNames[button.dataset.duration]);
       button.setAttribute("aria-label", button.title);
     });
-    all("[data-pitch]").forEach((button) => { button.title = pianoKeyTitle(Number(button.dataset.pitch)); });
+    renderPitchInput();
     localizeLibraryLocation();
     renderControls();
     renderNotation();

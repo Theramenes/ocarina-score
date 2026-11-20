@@ -6,15 +6,15 @@
   <meta name="description" content="编辑、播放和分享陶笛曲谱，支持时之笛重制版的手柄按键。">
   <title>时之笛 · 陶笛曲谱 | Ocarina Score</title>
   <link rel="icon" type="image/svg+xml" sizes="any" href="assets/favicon.svg">
-  <link rel="stylesheet" href="style.css?v=share-qr-zoom">
-  <script src="ui.js?v=share-bend-legend" defer></script>
+  <link rel="stylesheet" href="style.css?v=numbered-pitch-input">
+  <script src="ui.js?v=numbered-pitch-input" defer></script>
   <script src="controller-input.js?v=controller-auto" defer></script>
   <script src="notation-glyphs.js" defer></script>
   <script src="midi-import.js?v=theme-language" defer></script>
   <script src="vendor/qrcode-generator-1.4.4.js" defer></script>
   <script src="vendor/jsqr-1.4.0.js" defer></script>
   <script src="score-share.js?v=share-bend-legend" defer></script>
-  <script src="app.js?v=playback-follow-controller-auto" defer></script>
+  <script src="app.js?v=numbered-pitch-input" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -118,8 +118,15 @@
         </section>
         <section class="card input-card" aria-label="音高输入">
           <div class="input-top">
-            <div class="input-heading"><i data-icon="keys"></i><h2>音高输入</h2><span>F3–B5</span></div>
-            <div class="input-connections"><span class="keyboard-hint">灰键可输入 · 游戏无对应按法</span><button id="midi-connect" class="secondary device-button" type="button">连接 MIDI</button></div>
+            <div class="input-heading"><i data-icon="keys"></i><h2>音高输入</h2><span id="pitch-input-reference">F3–B5</span></div>
+            <div class="input-connections">
+              <span class="keyboard-hint">灰键可输入 · 游戏无对应按法</span>
+              <div class="segmented pitch-display" role="group" aria-label="音高显示">
+                <button type="button" data-pitch-display="absolute" aria-pressed="true">固定音名</button>
+                <button type="button" data-pitch-display="relative" aria-pressed="false">首调简谱</button>
+              </div>
+              <button id="midi-connect" class="secondary device-button" type="button">连接 MIDI</button>
+            </div>
           </div>
           <div class="midi-settings" id="midi-settings" hidden>
             <select id="midi-device" aria-label="MIDI 输入设备" hidden></select>
