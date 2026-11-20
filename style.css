@@ -121,6 +121,7 @@ main { max-width: 1440px; width: calc(100% - 88px); margin: 0 auto; padding: 24p
 .tool-group:last-child { border-right: 0; padding-right: 0; }
 .settings { gap: 6px; }
 .song-settings { display: flex; flex-wrap: wrap; gap: 7px 14px; padding: 9px 15px; border-top: 1px solid #e4dbc2; background: #f5efdd; align-items: center; }
+.key-setting { display: flex; align-items: center; gap: 8px; }
 .settings label { font-size: 11px; color: var(--muted); display: flex; gap: 4px; align-items: center; white-space: nowrap; }
 .settings select, .settings input { padding: 4px 5px; border: 1px solid #e2d8bd; border-radius: 6px; background: var(--paper); font-size: 12px; font-weight: 600; }
 .settings input { width: 54px; }

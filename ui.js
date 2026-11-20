@@ -103,6 +103,7 @@ const englishText = {
   "音高显示": "Pitch labels",
   "固定音名": "Note names",
   "首调简谱": "Scale degrees",
+  "简谱": "Numbers",
   "八度 {offset}": "Octave {offset}",
   "灰键可输入 · 游戏无对应按法": "Gray keys are outside the in-game range",
   "连接 MIDI": "Connect MIDI",

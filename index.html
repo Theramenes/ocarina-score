@@ -6,15 +6,15 @@
   <meta name="description" content="编辑、播放和分享陶笛曲谱，支持时之笛重制版的手柄按键。">
   <title>时之笛 · 陶笛曲谱 | Ocarina Score</title>
   <link rel="icon" type="image/svg+xml" sizes="any" href="assets/favicon.svg">
-  <link rel="stylesheet" href="style.css?v=numbered-pitch-input">
-  <script src="ui.js?v=numbered-pitch-input" defer></script>
+  <link rel="stylesheet" href="style.css?v=numbered-score">
+  <script src="ui.js?v=numbered-score" defer></script>
   <script src="controller-input.js?v=controller-auto" defer></script>
   <script src="notation-glyphs.js" defer></script>
   <script src="midi-import.js?v=theme-language" defer></script>
   <script src="vendor/qrcode-generator-1.4.4.js" defer></script>
   <script src="vendor/jsqr-1.4.0.js" defer></script>
   <script src="score-share.js?v=share-bend-legend" defer></script>
-  <script src="app.js?v=numbered-pitch-input" defer></script>
+  <script src="app.js?v=numbered-score" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -61,7 +61,13 @@
             </div>
           </div>
           <div class="settings song-settings" role="group" aria-label="曲谱和播放设置">
-            <label>调号<select id="key" aria-label="调号"></select></label>
+            <div class="key-setting">
+              <label>调号<select id="key" aria-label="调号"></select></label>
+              <div class="segmented pitch-display" role="group" aria-label="音高显示">
+                <button type="button" data-pitch-display="absolute" aria-pressed="true">固定音名</button>
+                <button type="button" data-pitch-display="relative" aria-pressed="false">首调简谱</button>
+              </div>
+            </div>
             <label>拍号<select id="meter" aria-label="拍号"><option>4/4</option><option>3/4</option><option>2/4</option><option>6/8</option></select></label>
             <div class="tempo-setting">
               <label class="bpm-field">速度<input id="bpm" type="number" min="30" max="320" aria-label="速度（BPM）"> BPM</label>
@@ -121,10 +127,6 @@
             <div class="input-heading"><i data-icon="keys"></i><h2>音高输入</h2><span id="pitch-input-reference">F3–B5</span></div>
             <div class="input-connections">
               <span class="keyboard-hint">灰键可输入 · 游戏无对应按法</span>
-              <div class="segmented pitch-display" role="group" aria-label="音高显示">
-                <button type="button" data-pitch-display="absolute" aria-pressed="true">固定音名</button>
-                <button type="button" data-pitch-display="relative" aria-pressed="false">首调简谱</button>
-              </div>
               <button id="midi-connect" class="secondary device-button" type="button">连接 MIDI</button>
             </div>
           </div>

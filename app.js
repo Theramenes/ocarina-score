@@ -1074,7 +1074,36 @@ function tieArc(fromX, toX, noteY, staffY, part = "complete") {
   return '<path class="tie-arc ' + part + '" d="M' + start + ' ' + y + ' Q' + middle + ' ' + (y + side * depth) + ' ' +
     end + ' ' + y + '" fill="none" stroke="var(--score-ink, #354036)" stroke-width="1.35" stroke-linecap="round" pointer-events="none"/>';
 }
-function measureSpacing(bar, b, staff, buttons) {
+function numberedExtensions(note) {
+  return note.duration <= 2 ? 4 / note.duration * (note.dotted ? 1.5 : 1) - 1 : 0;
+}
+
+function drawNumberedNote(note, x, y, color, preview = false) {
+  const isRest = note.kind === "rest";
+  const { number, accidental, octave } = isRest ? { number: 0, accidental: "", octave: 0 } : scaleDegree(note.pitch);
+  const digit = 'text-anchor="middle" font-size="19" font-weight="700"';
+  let drawing = svgText(number, x, y, digit + ' class="score-degree"');
+  if (accidental) drawing += svgText(accidental, x - 10, y - 1, 'text-anchor="end" font-size="14"');
+  const underlines = Math.max(0, Math.log2(note.duration) - 2);
+  for (let line = 0; line < underlines; line++) {
+    drawing += `<path class="numbered-underline" d="M${x - 6} ${y + 4 + line * 3}h12" stroke="${color}" stroke-width="1.15"/>`;
+  }
+  for (let dot = 0; dot < Math.abs(octave); dot++) {
+    const cy = octave > 0 ? y - 18 - dot * 4 : y + 6 + underlines * 3 + dot * 4;
+    drawing += `<circle class="numbered-octave" cx="${x}" cy="${cy}" r="1.4"/>`;
+  }
+  if (note.dotted && note.duration >= 4) {
+    drawing += `<circle class="numbered-dot" cx="${x + 10}" cy="${y - 6}" r="1.5"/>`;
+  }
+  for (let mark = 0; !preview && mark < numberedExtensions(note); mark++) {
+    const at = x + 19 + mark * 13;
+    drawing += isRest ? svgText("0", at, y, digit + ' class="numbered-extension"') :
+      `<path class="numbered-extension" d="M${at - 4} ${y - 6}h8" stroke="${color}" stroke-width="1.5" stroke-linecap="round"/>`;
+  }
+  return `<g class="numbered-note" fill="${color}">${drawing}</g>`;
+}
+
+function measureSpacing(bar, b, staff, buttons, numbered) {
   const selected = b === position.b;
   const tail = barUnits(bar) < meterUnits[score.meter] || (selected && position.slot === "tail");
   const insertAt = selected && position.slot === "insert" ? position.n : -1;
@@ -1082,8 +1111,10 @@ function measureSpacing(bar, b, staff, buttons) {
   const cells = bar.map((note) => {
     const annotation = note.annotation && layoutAnnotation(note.annotation);
     const textHalf = annotation ? annotation.width / 2 + 5 : 0;
-    const left = Math.max(textHalf, note.kind === "rest" ? 13 : staff ? 19 : 15);
-    const right = Math.max(textHalf, note.kind === "note" && buttons ? 25 : note.duration >= 8 && staff && note.kind !== "rest" ? 19 : 13);
+    const extensions = numbered ? numberedExtensions(note) : 0;
+    const left = Math.max(textHalf, note.kind === "rest" ? 13 : staff || numbered ? 19 : 15);
+    const right = Math.max(textHalf, extensions ? 15 + extensions * 13 : 0,
+      note.kind === "note" && buttons ? 25 : note.duration >= 8 && staff && note.kind !== "rest" ? 19 : 13);
     const weight = note.kind === "tie" ? .75 : 1 + .22 * Math.log2(1 + Math.min(noteUnits(note), 96) / 12);
     return { left, right, weight, annotation };
   });
@@ -1133,7 +1164,7 @@ function drawBeamGroup(group, staffY) {
   return drawing;
 }
 
-function drawRhythm(notePositions, staffY, meter, insertAt) {
+function drawRhythm(notePositions, staffY, meter, insertAt, numbered) {
   const tuplets = [];
   for (let n = 0; n + 2 < notePositions.length; n++) {
     const group = notePositions.slice(n, n + 3);
@@ -1145,7 +1176,7 @@ function drawRhythm(notePositions, staffY, meter, insertAt) {
   }
   const beatUnits = meter === "6/8" ? 72 : 48;
   let drawing = "";
-  for (let start = 0; start < notePositions.length;) {
+  for (let start = 0; !numbered && start < notePositions.length;) {
     const first = notePositions[start];
     let end = start + 1;
     if (beamLevels(first.note)) {
@@ -1165,14 +1196,15 @@ function drawRhythm(notePositions, staffY, meter, insertAt) {
     const first = group[0].x - 5;
     const last = group[2].x + 5;
     const middle = (first + last) / 2;
-    const top = Math.max(8, Math.min(25, ...group.map((item) => item.beamUp ? item.beam - 9 : item.y - 14)));
+    const top = numbered ? 27 : Math.max(8, Math.min(25, ...group.map((item) => item.beamUp ? item.beam - 9 : item.y - 14)));
     drawing += `<path d="M${first} ${top + 5}v-5H${middle - 6}M${middle + 6} ${top}H${last}v5" fill="none" stroke="var(--score-rhythm, #64755e)"/>` +
       glyph("tuplet3", middle - 3.2, top + 3, "var(--score-ink, #354036)", .6);
   }
   return drawing;
 }
 
-function barDrawing(bar, b, x1, x2, { staff, buttons, prefix, spacing, staffY, badgeY, previousAnchor, endsSystem }) {
+function barDrawing(bar, b, x1, x2, { staff, numbered, buttons, prefix, spacing, staffY, badgeY, previousAnchor, endsSystem }) {
+  const pitched = staff || numbered;
   const end = buttons ? badgeY + 50 : badgeY;
   const start = x1 + prefix;
   const selectedBar = b === position.b;
@@ -1180,12 +1212,14 @@ function barDrawing(bar, b, x1, x2, { staff, buttons, prefix, spacing, staffY, b
   const inserting = insertAt !== -1;
   const empty = b === score.bars.length;
   const slotHalf = slotWidth / 2;
-  const targetTop = staff ? 26 : 21;
+  const targetTop = pitched ? 26 : 21;
   const stretch = Math.max(0, x2 - start - cellWidth - gap - 18 - (tail ? slotWidth + 12 : 0));
   let beatsUsed = 0;
   let cellStart = start + 9;
   let drawing = svgText(empty ? (b + 1) + " · " + tr("空小节") : b + 1, start + 1, 19, 'font-size="11" font-weight="700" fill="var(--score-label, #788071)"');
-  drawing += '<path d="M' + x2 + ' ' + (staff ? staffY : 25) + 'V' + (staff ? staffY + 40 : badgeY + 43) + '" stroke="var(--score-barline, #929981)" stroke-width="1.15"/>';
+  const barlineTop = staff ? staffY : numbered ? 38 : 25;
+  const barlineBottom = staff ? staffY + 40 : numbered ? end - 5 : badgeY + 43;
+  drawing += '<path d="M' + x2 + ' ' + barlineTop + 'V' + barlineBottom + '" stroke="var(--score-barline, #929981)" stroke-width="1.15"/>';
   const notePositions = [];
   const accidentals = new Map();
   const flat = score.key === "F" || score.key.includes("♭");
@@ -1196,26 +1230,30 @@ function barDrawing(bar, b, x1, x2, { staff, buttons, prefix, spacing, staffY, b
     if (n === insertAt) cellStart += gap;
     const x = cellStart + cell.left + extra / 2;
     const name = note.kind === "rest" ? "" : spelling(note.pitch);
-    notePositions.push({ n, note, x, name, beat: beatsUsed, y: name ? noteY(name, staffY) : staffY + 20 });
+    notePositions.push({ n, note, x, name, cellStart, beat: beatsUsed, y: staff && name ? noteY(name, staffY) : staffY + 20 });
     beatsUsed += noteUnits(note);
     cellStart += cell.left + cell.right + extra;
   }
   const midpoint = (a, b) => (a + b) / 2;
-  const slotX = !inserting ? null : insertAt === 0 ? start + 9 + gap / 2 : midpoint(notePositions[insertAt - 1].x, notePositions[insertAt].x);
+  let slotX = null;
+  if (inserting) {
+    slotX = numbered || insertAt === 0 ? notePositions[insertAt].cellStart - gap / 2 :
+      midpoint(notePositions[insertAt - 1].x, notePositions[insertAt].x);
+  }
   const tailStart = bar.length ? Math.min(x2 - slotWidth - 6, notePositions.at(-1).x + cells.at(-1).right + 3) : start;
   const tailX = tail ? tailStart + slotHalf + 3 : null;
-  const rhythm = staff ? drawRhythm(notePositions, staffY, score.meter, insertAt) : "";
+  const rhythm = pitched ? drawRhythm(notePositions, staffY, score.meter, insertAt, numbered) : "";
   for (const [index, item] of notePositions.entries()) {
     const { n, note, x, y, name } = item;
     const prev = notePositions[index - 1];
     const next = notePositions[index + 1];
-    const left = inserting && n === position.n ? slotX + slotHalf : prev ? midpoint(prev.x, x) : start;
-    const right = inserting && n === position.n - 1 ? slotX - slotHalf : next ? midpoint(next.x, x) : tail ? tailStart : x2;
+    const left = inserting && n === position.n ? slotX + slotHalf : prev ? numbered ? item.cellStart : midpoint(prev.x, x) : start;
+    const right = inserting && n === position.n - 1 ? slotX - slotHalf : next ? numbered ? next.cellStart : midpoint(next.x, x) : tail ? tailStart : x2;
     const width = Math.max(3, right - left);
     const selected = selectedBar && n === position.n && !position.slot;
     const batchSelected = selectedNotes.has(`${b}:${n}`);
     const color = "var(--score-ink, #354036)";
-    const label = (name || tr("休止")) + " · " + tr(durationNames[note.duration]);
+    const label = (numbered && name ? pitchInputLabel(note.pitch).text : name || tr("休止")) + " · " + tr(durationNames[note.duration]);
     drawing += '<g class="target' + (selected ? " selected" : "") + (batchSelected ? " batch-selected" : "") + '" data-bar="' + b + '" data-note="' + n + '" tabindex="-1" role="button" aria-label="' + label + '"><rect x="' + left + '" y="' + targetTop + '" width="' + width + '" height="' + (end - targetTop) + '" fill="transparent"/>';
     drawing += `<rect class="playback-frame" x="${x - 21}" y="${targetTop}" width="${buttons ? 51 : 43}" height="${end - targetTop - 2}" rx="4" aria-hidden="true"/>`;
     if (staff) {
@@ -1233,26 +1271,30 @@ function barDrawing(bar, b, x1, x2, { staff, buttons, prefix, spacing, staffY, b
         drawing += drawNote(note, x, y, color, item.beamUp ?? y > staffY + 20, item.beam);
       }
       if (note.dotted) drawing += '<circle cx="' + (x + 9) + '" cy="' + (y % 10 === staffY % 10 ? y - 3 : y) + '" r="1.6" fill="' + color + '"/>';
-      if (note.triplet && !item.tupletGroup) drawing += glyph("tuplet3", x - 3.2, 30, color, .6);
-      if (note.kind === "tie" && previousNote(b, n)?.pitch === note.pitch) {
-        const source = prev ?? previousAnchor;
-        drawing += source ? tieArc(source.x, x, y, staffY) : tieArc(start, x, y, staffY, "incoming");
-      }
       drawing += note.kind === "rest" ? restFrame(note.duration, x, y) : cursorFrame(x, y - 8, note.duration === 1 ? 23 : 20, 16);
+    } else if (numbered) {
+      drawing += drawNumberedNote(note, x, y, color);
+      drawing += cursorFrame(x, y - 17, 24, 23);
+    }
+    if (pitched && note.triplet && !item.tupletGroup) drawing += glyph("tuplet3", x - 3.2, 30, color, .6);
+    if (pitched && note.kind === "tie" && previousNote(b, n)?.pitch === note.pitch) {
+      const source = prev ?? previousAnchor;
+      const tieY = numbered ? y - 30 : y;
+      drawing += source ? tieArc(source.x, x, tieY, staffY) : tieArc(start, x, tieY, staffY, "incoming");
     }
     if (buttons) {
-      drawing += badge(note, x, badgeY, true, fingeringSource(b, n));
+      drawing += badge(note, x, badgeY, !numbered, fingeringSource(b, n));
       drawing += cursorFrame(x, badgeY - 1, 28, 30);
-      if (note.kind === "note" && note.duration >= 8) drawing += '<path d="M' + (x - 6) + ' ' + (badgeY + 44) + 'h12' + 'm-12 2.5h12'.repeat(Math.log2(note.duration) - 3) + '" stroke="var(--score-rhythm, #758171)" stroke-linecap="round" stroke-width="1.15"/>';
+      if (!numbered && note.kind === "note" && note.duration >= 8) drawing += '<path d="M' + (x - 6) + ' ' + (badgeY + 44) + 'h12' + 'm-12 2.5h12'.repeat(Math.log2(note.duration) - 3) + '" stroke="var(--score-rhythm, #758171)" stroke-linecap="round" stroke-width="1.15"/>';
     }
     if (cells[n].annotation) drawing += drawAnnotation(cells[n].annotation, x, end + 15);
     drawing += "</g>";
   }
   const lastAnchor = notePositions.at(-1);
   const continuation = score.bars[b + 1]?.[0];
-  if (staff && endsSystem && continuation?.kind === "tie" && lastAnchor &&
+  if (pitched && endsSystem && continuation?.kind === "tie" && lastAnchor &&
       previousNote(b + 1, 0)?.pitch === continuation.pitch) {
-    drawing += tieArc(lastAnchor.x, x2 - 2, lastAnchor.y, staffY, "outgoing");
+    drawing += tieArc(lastAnchor.x, x2 - 2, numbered ? lastAnchor.y - 30 : lastAnchor.y, staffY, "outgoing");
   }
   drawing += rhythm;
   const drawSlot = (n, slot, cursorX, hitLeft, hitRight) => {
@@ -1263,11 +1305,14 @@ function barDrawing(bar, b, x1, x2, { staff, buttons, prefix, spacing, staffY, b
     const hitTop = isNewBar ? 5 : targetTop;
     // The measure can be clicked across its remaining space. Only the beat cursor is visible.
     drawing += '<g class="target score-slot' + (selected ? " selected" : isNewBar ? " new-bar-slot" : "") + '" data-bar="' + b + '" data-note="' + n + '" data-slot="' + slot + '" tabindex="-1" role="button" aria-label="' + label + '"><rect class="slot-hit-area" x="' + hitLeft + '" y="' + hitTop + '" width="' + (hitRight - hitLeft) + '" height="' + (end - hitTop) + '" fill="none" pointer-events="all"/>';
-    if (staff) {
-      drawing += cursorFrame(cursorX, my - slotHalf, slotWidth, slotWidth);
+    if (pitched) {
+      drawing += cursorFrame(cursorX, numbered ? my - 17 : my - slotHalf, slotWidth, slotWidth);
       if (selected) {
-        drawing += '<g class="pending-rest" aria-hidden="true" pointer-events="none">' + drawRest(duration, cursorX, my, "var(--score-ink, #354036)");
-        if (dotted) drawing += '<circle cx="' + (cursorX + 9) + '" cy="' + (my - 3) + '" r="1.6" fill="var(--score-ink, #354036)"/>';
+        const color = "var(--score-ink, #354036)";
+        drawing += '<g class="pending-rest" aria-hidden="true" pointer-events="none">' + (numbered ?
+          drawNumberedNote(newNote(null, duration, { kind: "rest", dotted }), cursorX, my, color, true) :
+          drawRest(duration, cursorX, my, color));
+        if (staff && dotted) drawing += '<circle cx="' + (cursorX + 9) + '" cy="' + (my - 3) + '" r="1.6" fill="var(--score-ink, #354036)"/>';
         if (triplet) drawing += glyph("tuplet3", cursorX - 3.2, 30, "var(--score-ink, #354036)", .6);
         drawing += "</g>";
       }
@@ -1291,7 +1336,8 @@ function renderNotation() {
   if (!notation.clientWidth) return;
   const style = getComputedStyle(notation);
   const available = Math.floor(notation.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight));
-  const staff = display !== "buttons";
+  const numbered = display !== "buttons" && pitchDisplay === "relative";
+  const staff = display !== "buttons" && !numbered;
   const buttons = display !== "staff";
   const rows = [];
   const layout = [];
@@ -1301,22 +1347,23 @@ function renderNotation() {
   for (let b = 0; b < displayedBars.length;) {
     const count = barsPerRow === 2 && displayedBars.length - b === 3 ? 3 : barsPerRow;
     const selectedBars = displayedBars.slice(b, b + count);
-    const spacings = selectedBars.map((bar, index) => measureSpacing(bar, b + index, staff, buttons));
+    const spacings = selectedBars.map((bar, index) => measureSpacing(bar, b + index, staff, buttons, numbered));
     const annotationHeight = annotationLineHeight * Math.max(0,
       ...spacings.flatMap(({ cells }) => cells.map(({ annotation }) => annotation?.lines.length ?? 0)));
-    const noteYs = selectedBars.flat().filter((note) => note.kind !== "rest").map((note) => noteY(spelling(note.pitch), 0));
-    const staffY = 48 + (staff ? Math.max(0, -Math.min(0, ...noteYs)) : 0);
-    const badgeY = staff ? staffY + 63 + Math.max(0, Math.max(40, ...noteYs) - 40) : 33;
+    const noteYs = staff ? selectedBars.flat().filter((note) => note.kind !== "rest").map((note) => noteY(spelling(note.pitch), 0)) : [];
+    const staffY = numbered ? 54 : 48 + Math.max(0, -Math.min(0, ...noteYs));
+    const badgeY = staff ? staffY + 63 + Math.max(0, Math.max(40, ...noteYs) - 40) : numbered ? 115 : 33;
     const musicHeight = badgeY + (buttons ? 52 : 4);
     const height = musicHeight + annotationHeight;
     const left = 4;
-    const prefix = staff ? signatureWidth + (b === 0 ? 69 : 49) : 10;
+    const prefix = staff ? signatureWidth + (b === 0 ? 69 : 49) : numbered && b === 0 ? 69 : 10;
     const minimum = left + 8 + prefix + 6 * (spacings.length - 1) + spacings.reduce((sum, spacing) => sum + spacing.minWidth, 0);
     const width = Math.max(available, minimum);
     const right = width - 8;
     const total = spacings.reduce((sum, spacing) => sum + Math.max(2, spacing.weight), 0);
     let staves = "";
     let drawing = staff ? staffSignature(left + 4, staffY, b === 0) : "";
+    if (numbered && b === 0) drawing += svgText(`1 = ${score.key}4`, left + 2, 19, 'font-size="12" font-weight="700"');
     let previousAnchor;
     let x = left;
     selectedBars.forEach((bar, index) => {
@@ -1324,19 +1371,21 @@ function renderNotation() {
       const endsSystem = index === selectedBars.length - 1;
       const spacing = spacings[index];
       const end = endsSystem ? right : x + inset + spacing.minWidth + (width - minimum) * Math.max(2, spacing.weight) / total;
+      const error = b + index < score.bars.length && barUnits(bar) !== meterUnits[score.meter];
       if (staff) {
-        const error = b + index < score.bars.length && barUnits(bar) !== meterUnits[score.meter];
         const lines = Array.from({ length: 5 }, (_, n) => "M" + x + " " + (staffY + 10 * n) + "H" + end).join(" ");
         staves += '<path class="staff-lines' + (error ? " error" : "") + '" data-staff-bar="' + (b + index) + '" d="' + lines +
           '" stroke="' + (error ? "var(--score-error, #c63832)" : "var(--score-rule, #929985)") + '" stroke-width="' + (error ? "1.1" : ".85") + '" fill="none" pointer-events="none"/>';
+      } else if (numbered && error) {
+        staves += `<path class="numbered-measure-error" d="M${x} ${badgeY - 2}H${end}" stroke="var(--score-error, #c63832)" stroke-width="1.1" pointer-events="none"/>`;
       }
-      const contents = barDrawing(bar, b + index, x, end, { staff, buttons, prefix: inset, spacing, staffY, badgeY, previousAnchor, endsSystem });
+      const contents = barDrawing(bar, b + index, x, end, { staff, numbered, buttons, prefix: inset, spacing, staffY, badgeY, previousAnchor, endsSystem });
       drawing += contents.drawing;
       layout.push({ row: rows.length, right: end - 2, noteXs: contents.noteXs, tailX: contents.tailX });
       previousAnchor = contents.lastAnchor;
       x = end;
     });
-    const marker = `<line class="playhead" x1="0" x2="0" y1="${staff ? 26 : 21}" y2="${musicHeight - 5}" visibility="hidden" aria-hidden="true"/>`;
+    const marker = `<line class="playhead" x1="0" x2="0" y1="${staff || numbered ? 26 : 21}" y2="${musicHeight - 5}" visibility="hidden" aria-hidden="true"/>`;
     const label = tr("第 {first} 至 {last} 小节", { first: b + 1, last: b + selectedBars.length });
     rows.push(`<svg viewBox="0 0 ${width} ${height}" style="height:${height}px;min-width:${width}px" aria-label="${label}" fill="var(--ink)">` + staves + drawing + marker + "</svg>");
     b += selectedBars.length;
@@ -1401,8 +1450,7 @@ function drawKeyboard() {
   ).join("");
 }
 
-function pitchInputLabel(pitch, absolute = pitchDisplay === "relative" ? spelling(pitch) : pitchLabel(pitch)) {
-  if (pitchDisplay === "absolute") return { html: absolute, text: absolute };
+function scaleDegree(pitch) {
   const distance = pitch - tonicPitch(score.key);
   const octave = Math.floor(distance / 12);
   const semitone = distance - octave * 12;
@@ -1415,7 +1463,12 @@ function pitchInputLabel(pitch, absolute = pitchDisplay === "relative" ? spellin
     degree = flatten ? above : above - 1;
     accidental = flatten ? "♭" : "♯";
   }
-  const number = degree + 1;
+  return { number: degree + 1, accidental, octave };
+}
+
+function pitchInputLabel(pitch, absolute = pitchDisplay === "relative" ? spelling(pitch) : pitchLabel(pitch)) {
+  if (pitchDisplay === "absolute") return { html: absolute, text: absolute };
+  const { number, accidental, octave } = scaleDegree(pitch);
   const dots = octave ? `<span class="octave-dots ${octave > 0 ? "above" : "below"}">${"<span></span>".repeat(Math.abs(octave))}</span>` : "";
   const html = `<span class="numbered-pitch" aria-hidden="true">${accidental}<span class="numbered-digit">${number}${dots}</span></span>`;
   const register = octave ? " · " + tr("八度 {offset}", { offset: octave > 0 ? "+" + octave : "−" + Math.abs(octave) }) : "";
@@ -1428,6 +1481,7 @@ function renderPitchInput() {
   renderedPitchDisplay = state;
   $("keyboard").dataset.pitchDisplay = pitchDisplay;
   $("pitch-input-reference").textContent = pitchDisplay === "relative" ? `1 = ${score.key}4` : "F3–B5";
+  document.querySelector('[data-display="staff"]').textContent = tr(pitchDisplay === "relative" ? "简谱" : "五线谱");
   for (const button of all("button[data-pitch-display]")) {
     button.setAttribute("aria-pressed", button.dataset.pitchDisplay === pitchDisplay);
   }
@@ -2483,6 +2537,7 @@ all("button[data-pitch-display]").forEach((button) => button.onclick = () => {
   pitchDisplay = button.dataset.pitchDisplay;
   writePreference(pitchDisplayPreference, pitchDisplay);
   renderPitchInput();
+  renderNotation();
 });
 all("[data-duration]").forEach((button) => button.onclick = () => editRhythm("duration", Number(button.dataset.duration)));
 all("[data-transpose]").forEach((button) => button.onclick = () => transpose(Number(button.dataset.transpose)));
