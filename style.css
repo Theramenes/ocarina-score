@@ -1,6 +1,7 @@
 
 :root {
   color-scheme: light;
+  scrollbar-gutter: stable;
   --bg: #eeebdd;
   --paper: #fffdf4;
   --ink: #29352b;
@@ -166,7 +167,7 @@ main { max-width: 1440px; width: calc(100% - 88px); margin: 0 auto; padding: 24p
 .history { margin-left: auto; }
 .optimize-fingering { min-height: 30px; padding: 4px 8px; gap: 5px; font-size: 12px; color: var(--green-dark); }
 .optimize-fingering svg { width: 15px; height: 15px; }
-.notation { position: relative; user-select: none; min-width: 0; max-width: 100%; height: var(--score-height, var(--score-default-height, 54dvh)); min-height: 160px; overflow: auto; padding: 4px 21px 8px; scrollbar-color: #c7cbb8 transparent; }
+.notation { position: relative; user-select: none; min-width: 0; max-width: 100%; height: var(--score-height, var(--score-default-height, 54dvh)); min-height: 160px; overflow: auto; padding: 4px 21px 8px; scrollbar-gutter: stable; scrollbar-color: #c7cbb8 transparent; }
 .score-resize { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 24px; padding: 3px 8px; border-top: 1px solid var(--line); border-radius: 0 0 13px 13px; color: var(--muted); font-size: 11px; cursor: ns-resize; touch-action: none; user-select: none; }
 .score-resize::before { content: ""; width: 22px; height: 5px; border-block: 1px solid #9aa38f; }
 .score-resize:hover, .score-resize:focus-visible, .score-resize.dragging { background: var(--mint); color: var(--green-dark); }

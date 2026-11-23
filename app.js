@@ -622,7 +622,8 @@ function switchScore(next, saved, file = null, { shared = false } = {}) {
     openedShareId = shared ? next.id : null;
     applyScore(next, saved);
     if (saved) rememberActive(next.id);
-    setView("editor");
+    if (view !== "editor") setView("editor");
+    $("notation").scrollTo(0, 0);
   };
   const dialog = $("unsaved");
   if (saving || dialog.open) return;
@@ -1332,11 +1333,14 @@ function barDrawing(bar, b, x1, x2, { staff, numbered, buttons, prefix, spacing,
 
 let sounding = null;
 let playbackLayout = [];
+let renderedNotationWidth = 0;
 function renderNotation() {
   const notation = $("notation");
-  if (!notation.clientWidth) return;
+  const clientWidth = notation.clientWidth;
+  if (!clientWidth) return;
+  renderedNotationWidth = clientWidth;
   const style = getComputedStyle(notation);
-  const available = Math.floor(notation.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight));
+  const available = Math.floor(clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight));
   const numbered = display !== "buttons" && pitchDisplay === "relative";
   const staff = display !== "buttons" && !numbered;
   const buttons = display !== "staff";
@@ -1394,7 +1398,7 @@ function renderNotation() {
     });
     const marker = `<line class="playhead" x1="0" x2="0" y1="${staff || numbered ? 26 : 21}" y2="${musicHeight - 5}" visibility="hidden" aria-hidden="true"/>`;
     const label = tr("第 {first} 至 {last} 小节", { first: b + 1, last: b + selectedBars.length });
-    rows.push(`<svg viewBox="0 0 ${width} ${height}" style="height:${height}px;min-width:${width}px" aria-label="${label}" fill="var(--ink)">` + staves + drawing + marker + "</svg>");
+    rows.push(`<svg viewBox="0 0 ${width} ${height}" style="height:${height}px;min-width:${minimum}px" aria-label="${label}" fill="var(--ink)">` + staves + drawing + marker + "</svg>");
     b += selectedBars.length;
   }
   playbackLayout = layout;
@@ -3129,7 +3133,6 @@ function setupScoreHeight() {
   const min = Number(grip.getAttribute("aria-valuemin"));
   let proportion = null;
   let drag = null;
-  let width = notation.clientWidth;
   const measure = () => Math.round(notation.getBoundingClientRect().height);
 
   function setHeight(value) {
@@ -3179,10 +3182,10 @@ function setupScoreHeight() {
   new ResizeObserver(() => {
     if (measure()) grip.setAttribute("aria-valuenow", measure());
     grip.setAttribute("aria-valuemax", Math.max(min, innerHeight));
-    if (notation.clientWidth !== width) {
-      width = notation.clientWidth;
-      renderNotation();
-    } else if (playback) updatePlayhead(true);
+    const width = notation.clientWidth;
+    if (!width) return;
+    if (width !== renderedNotationWidth) renderNotation();
+    else if (playback) updatePlayhead(true);
   }).observe(notation);
 }
 
