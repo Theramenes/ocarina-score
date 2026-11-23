@@ -1370,8 +1370,15 @@ function renderNotation() {
     const musicHeight = badgeY + (buttons ? 52 : 4);
     const height = musicHeight + annotationHeight;
     const width = Math.max(available, minimum);
-    const right = width - 8;
-    const total = spacings.reduce((sum, spacing) => sum + Math.max(2, spacing.weight), 0);
+    const hasNewBarSlot = b + spacings.length === displayedBars.length;
+    const musicSpacings = hasNewBarSlot ? spacings.slice(0, -1) : spacings;
+    const newBarWidth = hasNewBarSlot ? spacings.at(-1).minWidth + (musicSpacings.length ? 6 : prefix) : 0;
+    const rowWidth = hasNewBarSlot
+      ? Math.max(minimum, Math.min(available, left + 8 + newBarWidth + available / barsPerRow * musicSpacings.length))
+      : width;
+    const right = rowWidth - 8;
+    const stretch = rowWidth - minimum;
+    const total = musicSpacings.reduce((sum, spacing) => sum + Math.max(2, spacing.weight), 0);
     let staves = "";
     let drawing = staff ? staffSignature(left + 4, staffY, b === 0) : "";
     if (numbered && b === 0) drawing += svgText(`1 = ${score.key}4`, left + 2, 19, 'font-size="12" font-weight="700"');
@@ -1381,7 +1388,7 @@ function renderNotation() {
       const inset = index === 0 ? prefix : 6;
       const endsSystem = index === selectedBars.length - 1;
       const spacing = spacings[index];
-      const end = endsSystem ? right : x + inset + spacing.minWidth + (width - minimum) * Math.max(2, spacing.weight) / total;
+      const end = endsSystem ? right : x + inset + spacing.minWidth + stretch * Math.max(2, spacing.weight) / total;
       const error = b + index < score.bars.length && barUnits(bar) !== meterUnits[score.meter];
       if (staff) {
         const lines = Array.from({ length: 5 }, (_, n) => "M" + x + " " + (staffY + 10 * n) + "H" + end).join(" ");
