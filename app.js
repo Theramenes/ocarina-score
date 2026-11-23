@@ -1373,11 +1373,12 @@ function renderNotation() {
     const hasNewBarSlot = b + spacings.length === displayedBars.length;
     const musicSpacings = hasNewBarSlot ? spacings.slice(0, -1) : spacings;
     const newBarWidth = hasNewBarSlot ? spacings.at(-1).minWidth + (musicSpacings.length ? 6 : prefix) : 0;
+    const newBarPadding = Math.min(newBarWidth / 2, Math.max(0, available - minimum));
     const rowWidth = hasNewBarSlot
-      ? Math.max(minimum, Math.min(available, left + 8 + newBarWidth + available / barsPerRow * musicSpacings.length))
+      ? Math.max(minimum, Math.min(available, left + 8 + newBarWidth + newBarPadding + available / barsPerRow * musicSpacings.length))
       : width;
     const right = rowWidth - 8;
-    const stretch = rowWidth - minimum;
+    const stretch = rowWidth - minimum - newBarPadding;
     const total = musicSpacings.reduce((sum, spacing) => sum + Math.max(2, spacing.weight), 0);
     let staves = "";
     let drawing = staff ? staffSignature(left + 4, staffY, b === 0) : "";
