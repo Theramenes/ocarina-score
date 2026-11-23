@@ -221,7 +221,8 @@ function makeScore(id = "score-" + (crypto.randomUUID?.() ?? Date.now())) {
   return { id, title: untitledScore, author: "", key: "C", bpm: 96, meter: "4/4", bars: [], swing: "straight", loop: "off", loopStart: 0, loopEnd: 0 };
 }
 function normalizeAuthor(value) { return typeof value === "string" ? [...value.trim()].slice(0, 32).join("") : ""; }
-// Nintendo's Switch 2 melody cards give the notes and rhythms. BPM is adjustable.
+// Rhythms follow Nintendo's melody cards. Default tempos approximate the
+// official previews, with a slower practice tempo for Zelda's Lullaby.
 function ocarinaSong(id, title, meter, bpm, bars) {
   return {
     ...makeScore("score-builtin-" + id), title, meter, bpm,
@@ -230,40 +231,40 @@ function ocarinaSong(id, title, meter, bpm, bars) {
   };
 }
 const builtInScores = [
-  ocarinaSong("lullaby", "塞尔达摇篮曲", "3/4", 72, [
+  ocarinaSong("lullaby", "塞尔达摇篮曲", "3/4", 110, [
     [[71, 2], [74, 4]], [[69, 2, true]], [[71, 2], [74, 4]], [[69, 2, true]]
   ]),
-  ocarinaSong("time", "时之歌", "4/4", 76, [
+  ocarinaSong("time", "时之歌", "4/4", 110, [
     [[69, 4], [62, 2], [65, 4]], [[69, 4], [62, 2], [65, 4]]
   ]),
-  ocarinaSong("sun", "太阳之歌", "3/4", 96, [
+  ocarinaSong("sun", "太阳之歌", "3/4", 130, [
     [[69, 8], [65, 8], [74, 4], [null, 4]], [[69, 8], [65, 8], [74, 4], [null, 4]]
   ]),
-  ocarinaSong("storms", "风暴之歌", "3/4", 100, [
+  ocarinaSong("storms", "风暴之歌", "3/4", 160, [
     [[62, 8], [65, 8], [74, 2]], [[62, 8], [65, 8], [74, 2]]
   ]),
-  ocarinaSong("epona", "艾波娜之歌", "3/4", 84, [
+  ocarinaSong("epona", "艾波娜之歌", "3/4", 82, [
     [[74, 8], [71, 8], [69, 4, true], [null, 8]], [[74, 8], [71, 8], [69, 4, true], [null, 8]]
   ]),
-  ocarinaSong("saria", "莎莉亚之歌", "2/4", 108, [
+  ocarinaSong("saria", "莎莉亚之歌", "2/4", 110, [
     [[65, 8], [69, 8], [71, 4]], [[65, 8], [69, 8], [71, 4]]
   ]),
-  ocarinaSong("minuet", "森林小步舞曲", "3/4", 84, [
+  ocarinaSong("minuet", "森林小步舞曲", "3/4", 92, [
     [[62, 8], [74, 8], [71, 2]], [[69, 8], [71, 8], [69, 2]]
   ]),
-  ocarinaSong("bolero", "火焰波莱罗", "3/4", 72, [
+  ocarinaSong("bolero", "火焰波莱罗", "3/4", 55, [
     [[65, 16], [62, 16], [65, 16], [62, 16], [69, 16], [65, 16], [69, 16], [65, 16], [65, 8, false, "tie"], [null, 8]]
   ]),
-  ocarinaSong("serenade", "水之小夜曲", "3/4", 72, [
+  ocarinaSong("serenade", "水之小夜曲", "3/4", 100, [
     [[62, 4], [65, 4], [69, 4]], [[69, 4], [71, 2]]
   ]),
-  ocarinaSong("requiem", "灵魂安魂曲", "4/4", 72, [
+  ocarinaSong("requiem", "灵魂安魂曲", "4/4", 80, [
     [[62, 4], [65, 8], [62, 8], [69, 4], [65, 4]], [[62, 2, true], [null, 4]]
   ]),
-  ocarinaSong("nocturne", "暗影夜曲", "4/4", 72, [
+  ocarinaSong("nocturne", "暗影夜曲", "4/4", 97, [
     [[71, 4], [69, 4], [69, 8], [62, 8], [71, 8], [69, 8]], [[65, 2, true], [null, 4]]
   ]),
-  ocarinaSong("prelude", "光之前奏曲", "4/4", 84, [
+  ocarinaSong("prelude", "光之前奏曲", "4/4", 117, [
     [[74, 8], [69, 4, true], [74, 8], [69, 8], [71, 8], [74, 8]], [[74, 2, true, "tie"], [null, 4]]
   ])
 ];
