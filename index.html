@@ -6,15 +6,15 @@
   <meta name="description" content="编辑、播放和分享陶笛曲谱，支持时之笛重制版的手柄按键。">
   <title>时之笛 · 陶笛曲谱 | Ocarina Score</title>
   <link rel="icon" type="image/svg+xml" sizes="any" href="assets/favicon.svg">
-  <link rel="stylesheet" href="style.css?v=numbered-score">
-  <script src="ui.js?v=numbered-score" defer></script>
+  <link rel="stylesheet" href="style.css?v=fluid-workspace">
+  <script src="ui.js?v=fluid-workspace" defer></script>
   <script src="controller-input.js?v=controller-auto" defer></script>
   <script src="notation-glyphs.js" defer></script>
   <script src="midi-import.js?v=theme-language" defer></script>
   <script src="vendor/qrcode-generator-1.4.4.js" defer></script>
   <script src="vendor/jsqr-1.4.0.js" defer></script>
-  <script src="score-share.js?v=share-bend-legend" defer></script>
-  <script src="app.js?v=official-tempos" defer></script>
+  <script src="score-share.js?v=fluid-workspace" defer></script>
+  <script src="app.js?v=fluid-workspace" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -31,7 +31,7 @@
           <button id="language-toggle" type="button" class="header-control" title="Switch to English" lang="en">EN</button>
         </div>
         <button id="share-score" class="primary" type="button"><i data-icon="share"></i>分享曲谱</button>
-        <button id="save" class="primary" type="button" title="选择 JSON 保存位置并更新曲谱库"><i data-icon="save"></i>保存谱子</button>
+        <button id="save" class="primary" type="button" title="选择 JSON 保存位置并更新曲谱库"><i data-icon="save"></i>保存曲谱</button>
       </div>
     </div>
   </header>

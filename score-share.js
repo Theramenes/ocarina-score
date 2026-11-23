@@ -652,7 +652,7 @@ function setupScoreSharing() {
       shareStatus.textContent = qr ? tr("点击谱图里的二维码可放大。") :
         tr("曲谱较长，放不进一张二维码。请复制分享内容，或使用 JSON 曲谱文件。");
     } catch {
-      if (run === shareRun && sharer.open) shareStatus.textContent = tr("生成分享图失败。可以用「保存谱子」导出曲谱文件。");
+      if (run === shareRun && sharer.open) shareStatus.textContent = tr("生成分享图失败。可以用「保存曲谱」导出曲谱文件。");
     }
   };
   sharer.addEventListener("close", () => {

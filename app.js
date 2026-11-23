@@ -1342,13 +1342,22 @@ function renderNotation() {
   const buttons = display !== "staff";
   const rows = [];
   const layout = [];
-  const barsPerRow = available < 560 ? 1 : 2;
+  const barsPerRow = Math.max(1, Math.floor(available / 280));
   const displayedBars = [...score.bars, []];
   const signatureWidth = keySignatures[score.key].length * 9;
   for (let b = 0; b < displayedBars.length;) {
-    const count = barsPerRow === 2 && displayedBars.length - b === 3 ? 3 : barsPerRow;
-    const selectedBars = displayedBars.slice(b, b + count);
-    const spacings = selectedBars.map((bar, index) => measureSpacing(bar, b + index, staff, buttons, numbered));
+    const left = 4;
+    const prefix = staff ? signatureWidth + (b === 0 ? 69 : 49) : numbered && b === 0 ? 69 : 10;
+    let minimum = left + 8;
+    const spacings = [];
+    for (let next = b; next < displayedBars.length; next++) {
+      const spacing = measureSpacing(displayedBars[next], next, staff, buttons, numbered);
+      const width = spacing.minWidth + (next === b ? prefix : 6);
+      if (spacings.length && (minimum + width > available || (spacings.length >= barsPerRow && next < score.bars.length))) break;
+      minimum += width;
+      spacings.push(spacing);
+    }
+    const selectedBars = displayedBars.slice(b, b + spacings.length);
     const annotationHeight = annotationLineHeight * Math.max(0,
       ...spacings.flatMap(({ cells }) => cells.map(({ annotation }) => annotation?.lines.length ?? 0)));
     const noteYs = staff ? selectedBars.flat().filter((note) => note.kind !== "rest").map((note) => noteY(spelling(note.pitch), 0)) : [];
@@ -1356,9 +1365,6 @@ function renderNotation() {
     const badgeY = staff ? staffY + 63 + Math.max(0, Math.max(40, ...noteYs) - 40) : numbered ? 115 : 33;
     const musicHeight = badgeY + (buttons ? 52 : 4);
     const height = musicHeight + annotationHeight;
-    const left = 4;
-    const prefix = staff ? signatureWidth + (b === 0 ? 69 : 49) : numbered && b === 0 ? 69 : 10;
-    const minimum = left + 8 + prefix + 6 * (spacings.length - 1) + spacings.reduce((sum, spacing) => sum + spacing.minWidth, 0);
     const width = Math.max(available, minimum);
     const right = width - 8;
     const total = spacings.reduce((sum, spacing) => sum + Math.max(2, spacing.weight), 0);
@@ -3119,28 +3125,28 @@ document.addEventListener("visibilitychange", () => {
 function setupScoreHeight() {
   const notation = $("notation");
   const grip = $("score-resize");
-  const preference = "ocarina-score-height-v1";
+  const preference = "ocarina-score-height-v2";
   const min = Number(grip.getAttribute("aria-valuemin"));
-  const max = Number(grip.getAttribute("aria-valuemax"));
-  let height = null;
+  let proportion = null;
   let drag = null;
   let width = notation.clientWidth;
   const measure = () => Math.round(notation.getBoundingClientRect().height);
 
   function setHeight(value) {
-    height = value === null ? null : Math.max(min, Math.min(max, Math.round(value)));
-    if (height === null) notation.style.removeProperty("--score-height");
-    else notation.style.setProperty("--score-height", height + "px");
+    proportion = value === null ? null : Math.max(min, Math.min(innerHeight, value)) / Math.max(min, innerHeight);
+    notation.toggleAttribute("data-custom-height", proportion !== null);
+    if (proportion === null) notation.style.removeProperty("--score-height");
+    else notation.style.setProperty("--score-height", proportion * 100 + "dvh");
   }
   function saveHeight() {
     try {
-      if (height === null) localStorage.removeItem(preference);
-      else localStorage.setItem(preference, String(height));
+      if (proportion === null) localStorage.removeItem(preference);
+      else localStorage.setItem(preference, String(proportion));
     } catch { /* Resizing still works without browser preference storage. */ }
   }
   try {
     const saved = Number(localStorage.getItem(preference));
-    if (Number.isFinite(saved) && saved > 0) setHeight(saved);
+    if (saved > 0 && saved <= 1) setHeight(saved * innerHeight);
   } catch { /* Use the default height. */ }
 
   grip.addEventListener("pointerdown", (event) => {
@@ -3172,6 +3178,7 @@ function setupScoreHeight() {
   });
   new ResizeObserver(() => {
     if (measure()) grip.setAttribute("aria-valuenow", measure());
+    grip.setAttribute("aria-valuemax", Math.max(min, innerHeight));
     if (notation.clientWidth !== width) {
       width = notation.clientWidth;
       renderNotation();
