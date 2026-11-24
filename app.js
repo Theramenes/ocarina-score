@@ -740,7 +740,7 @@ function enter(pitch, kind = "note", { advance = false, audition = true } = {}) 
       syncTools();
     }
   });
-  if (position.b !== b) revealNotationElement($("notation").querySelector(".target.selected"));
+  if (position.b !== b) cursorTarget()?.scrollIntoView({ block: "nearest", inline: "nearest" });
   if (audition && note.kind !== "rest") preview(note.pitch);
 }
 
@@ -833,12 +833,14 @@ function deleteNote() {
 function moveCursor(direction) {
   const { b, n, slot } = position;
   const bar = score.bars[b] ?? [];
+  const next = n + Number(!slot);
   if (direction < 0) {
     if (n > 0) selectNote(b, n - 1);
     else if (b > 0) selectNote(b - 1, Math.max(0, score.bars[b - 1].length - 1), score.bars[b - 1].length ? "" : "tail");
-  } else if (n < bar.length) {
-    const next = n + Number(!slot);
-    selectNote(b, next, next === bar.length ? "tail" : "");
+  } else if (next < bar.length) {
+    selectNote(b, next);
+  } else if (n < bar.length && barUnits(bar) < meterUnits[score.meter]) {
+    selectNote(b, bar.length, "tail");
   } else if (b < score.bars.length) {
     selectNote(b + 1, 0, score.bars[b + 1]?.length ? "" : "tail");
   }
@@ -1301,15 +1303,19 @@ function barDrawing(bar, b, x1, x2, { staff, numbered, buttons, prefix, spacing,
   drawing += rhythm;
   const drawSlot = (n, slot, cursorX, hitLeft, hitRight) => {
     const isNewBar = empty && slot === "tail";
+    const isEmptyBar = !bar.length && slot === "tail";
     const my = staffY + 20;
     const selected = selectedBar && position.slot === slot;
     const label = slot === "insert" ? tr("插入空档") : tr("第 {bar} 小节末尾输入", { bar: b + 1 });
     const hitTop = isNewBar ? 5 : targetTop;
+    const emptyMarker = (y) => `<path d="M${cursorX - 4} ${y}h8m-4-4v8" fill="none" stroke="var(--green-dark)" stroke-width="1.5" stroke-linecap="round" pointer-events="none" aria-hidden="true"/>`;
     // The measure can be clicked across its remaining space. Only the beat cursor is visible.
     drawing += '<g class="target score-slot' + (selected ? " selected" : isNewBar ? " new-bar-slot" : "") + '" data-bar="' + b + '" data-note="' + n + '" data-slot="' + slot + '" tabindex="-1" role="button" aria-label="' + label + '"><rect class="slot-hit-area" x="' + hitLeft + '" y="' + hitTop + '" width="' + (hitRight - hitLeft) + '" height="' + (end - hitTop) + '" fill="none" pointer-events="all"/>';
     if (pitched) {
-      drawing += cursorFrame(cursorX, numbered ? my - 17 : my - slotHalf, slotWidth, slotWidth);
-      if (selected) {
+      const top = numbered ? my - 17 : my - slotHalf;
+      drawing += cursorFrame(cursorX, top, slotWidth, slotWidth);
+      if (selected && isEmptyBar) drawing += emptyMarker(top + slotHalf);
+      else if (selected) {
         const color = "var(--score-ink, #354036)";
         drawing += '<g class="pending-rest" aria-hidden="true" pointer-events="none">' + (numbered ?
           drawNumberedNote(newNote(null, duration, { kind: "rest", dotted }), cursorX, my, color, true) :
@@ -1321,7 +1327,8 @@ function barDrawing(bar, b, x1, x2, { staff, numbered, buttons, prefix, spacing,
     }
     if (buttons) {
       drawing += cursorFrame(cursorX, badgeY + 13 - slotHalf, slotWidth, slotWidth);
-      if (selected) drawing += '<g class="pending-rest" aria-hidden="true">' + restBadge(cursorX, badgeY) + "</g>";
+      if (selected && isEmptyBar) drawing += emptyMarker(badgeY + 13);
+      else if (selected) drawing += '<g class="pending-rest" aria-hidden="true">' + restBadge(cursorX, badgeY) + "</g>";
     }
     drawing += "</g>";
   };
@@ -1349,6 +1356,7 @@ function renderNotation() {
   const barsPerRow = Math.max(1, Math.floor(available / 280));
   const displayedBars = [...score.bars, []];
   const signatureWidth = keySignatures[score.key].length * 9;
+  const measureInset = 12;
   for (let b = 0; b < displayedBars.length;) {
     const left = 4;
     const prefix = staff ? signatureWidth + (b === 0 ? 69 : 49) : numbered && b === 0 ? 69 : 10;
@@ -1356,7 +1364,7 @@ function renderNotation() {
     const spacings = [];
     for (let next = b; next < displayedBars.length; next++) {
       const spacing = measureSpacing(displayedBars[next], next, staff, buttons, numbered);
-      const width = spacing.minWidth + (next === b ? prefix : 6);
+      const width = spacing.minWidth + (next === b ? prefix : measureInset);
       if (spacings.length && (minimum + width > available || (spacings.length >= barsPerRow && next < score.bars.length))) break;
       minimum += width;
       spacings.push(spacing);
@@ -1372,7 +1380,7 @@ function renderNotation() {
     const width = Math.max(available, minimum);
     const hasNewBarSlot = b + spacings.length === displayedBars.length;
     const musicSpacings = hasNewBarSlot ? spacings.slice(0, -1) : spacings;
-    const newBarWidth = hasNewBarSlot ? spacings.at(-1).minWidth + (musicSpacings.length ? 6 : prefix) : 0;
+    const newBarWidth = hasNewBarSlot ? spacings.at(-1).minWidth + (musicSpacings.length ? measureInset : prefix) : 0;
     const newBarPadding = Math.min(newBarWidth / 2, Math.max(0, available - minimum));
     const rowWidth = hasNewBarSlot
       ? Math.max(minimum, Math.min(available, left + 8 + newBarWidth + newBarPadding + available / barsPerRow * musicSpacings.length))
@@ -1386,7 +1394,7 @@ function renderNotation() {
     let previousAnchor;
     let x = left;
     selectedBars.forEach((bar, index) => {
-      const inset = index === 0 ? prefix : 6;
+      const inset = index === 0 ? prefix : measureInset;
       const endsSystem = index === selectedBars.length - 1;
       const spacing = spacings[index];
       const end = endsSystem ? right : x + inset + spacing.minWidth + stretch * Math.max(2, spacing.weight) / total;
