@@ -6,15 +6,15 @@
   <meta name="description" content="编辑、播放和分享陶笛曲谱，支持时之笛重制版的手柄按键。">
   <title>时之笛 · 陶笛曲谱 | Ocarina Score</title>
   <link rel="icon" type="image/svg+xml" sizes="any" href="assets/favicon.svg">
-  <link rel="stylesheet" href="style.css?v=stable-score-switch">
-  <script src="ui.js?v=fluid-workspace" defer></script>
+  <link rel="stylesheet" href="style.css?v=score-zoom">
+  <script src="ui.js?v=score-zoom" defer></script>
   <script src="controller-input.js?v=controller-auto" defer></script>
   <script src="notation-glyphs.js" defer></script>
   <script src="midi-import.js?v=theme-language" defer></script>
   <script src="vendor/qrcode-generator-1.4.4.js" defer></script>
   <script src="vendor/jsqr-1.4.0.js" defer></script>
   <script src="score-share.js?v=fluid-workspace" defer></script>
-  <script src="app.js?v=next-bar-cursor" defer></script>
+  <script src="app.js?v=score-zoom" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -54,10 +54,17 @@
         <section class="card score-card" aria-label="曲谱编辑器">
           <div class="score-top">
             <div class="score-heading"><h2>曲谱编辑</h2><span id="measure-count"></span></div>
-            <div class="segmented" aria-label="谱面视图">
-              <button data-display="both" aria-pressed="true">双谱</button>
-              <button data-display="staff" aria-pressed="false">五线谱</button>
-              <button data-display="buttons" aria-pressed="false">按键谱</button>
+            <div class="score-view-tools">
+              <div class="segmented" role="group" aria-label="谱面视图">
+                <button data-display="both" aria-pressed="true">双谱</button>
+                <button data-display="staff" aria-pressed="false">五线谱</button>
+                <button data-display="buttons" aria-pressed="false">按键谱</button>
+              </div>
+              <div class="score-zoom" role="group" aria-label="谱面缩放">
+                <button id="score-zoom-out" type="button" title="缩小谱面" aria-label="缩小谱面" aria-controls="notation">−</button>
+                <button id="score-zoom-reset" type="button" title="恢复 100%" aria-controls="notation">100%</button>
+                <button id="score-zoom-in" type="button" title="放大谱面" aria-label="放大谱面" aria-controls="notation">+</button>
+              </div>
             </div>
           </div>
           <div class="settings song-settings" role="group" aria-label="曲谱和播放设置">

@@ -1341,13 +1341,20 @@ function barDrawing(bar, b, x1, x2, { staff, numbered, buttons, prefix, spacing,
 let sounding = null;
 let playbackLayout = [];
 let renderedNotationWidth = 0;
+const scoreZoomPreference = "ocarina-score-zoom-v1";
+const minScoreZoom = 70;
+const maxScoreZoom = 200;
+const scoreZoomStep = 10;
+const savedScoreZoom = Number(readPreference(scoreZoomPreference));
+let scoreZoom = savedScoreZoom >= minScoreZoom && savedScoreZoom <= maxScoreZoom ? savedScoreZoom : 100;
 function renderNotation() {
   const notation = $("notation");
   const clientWidth = notation.clientWidth;
   if (!clientWidth) return;
   renderedNotationWidth = clientWidth;
   const style = getComputedStyle(notation);
-  const available = Math.floor(clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight));
+  const scale = scoreZoom / 100;
+  const available = Math.floor((clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)) / scale);
   const numbered = display !== "buttons" && pitchDisplay === "relative";
   const staff = display !== "buttons" && !numbered;
   const buttons = display !== "staff";
@@ -1414,7 +1421,7 @@ function renderNotation() {
     });
     const marker = `<line class="playhead" x1="0" x2="0" y1="${staff || numbered ? 26 : 21}" y2="${musicHeight - 5}" visibility="hidden" aria-hidden="true"/>`;
     const label = tr("第 {first} 至 {last} 小节", { first: b + 1, last: b + selectedBars.length });
-    rows.push(`<svg viewBox="0 0 ${width} ${height}" style="height:${height}px;min-width:${minimum}px" aria-label="${label}" fill="var(--ink)">` + staves + drawing + marker + "</svg>");
+    rows.push(`<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMinYMin meet" style="height:${height * scale}px;min-width:${minimum * scale}px" aria-label="${label}" fill="var(--ink)">` + staves + drawing + marker + "</svg>");
     b += selectedBars.length;
   }
   playbackLayout = layout;
@@ -3130,7 +3137,7 @@ document.addEventListener("keydown", (event) => {
     return;
   }
   if (event.key === " " && !modifier && !event.altKey && !event.defaultPrevented &&
-      !event.target.closest("#tap-tempo, #optimize-fingering, #note-annotation, .inspector-fingering, .preferences, .site-footer") && $("insert-menu").hidden) {
+      !event.target.closest("#tap-tempo, #optimize-fingering, #note-annotation, .score-zoom, .inspector-fingering, .preferences, .site-footer") && $("insert-menu").hidden) {
     event.preventDefault();
     if (!event.repeat) togglePlayback();
   }
@@ -3141,6 +3148,38 @@ window.addEventListener("blur", () => setControllerPitch(null));
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) setControllerPitch(null);
 });
+
+function setupScoreZoom() {
+  const decrease = $("score-zoom-out");
+  const reset = $("score-zoom-reset");
+  const increase = $("score-zoom-in");
+  const notation = $("notation");
+  function updateButtons() {
+    reset.textContent = scoreZoom + "%";
+    decrease.disabled = scoreZoom <= minScoreZoom;
+    increase.disabled = scoreZoom >= maxScoreZoom;
+  }
+  function setZoom(value) {
+    const next = Math.min(maxScoreZoom, Math.max(minScoreZoom, value));
+    if (next === scoreZoom) return;
+    const top = notation.getBoundingClientRect().top + notation.clientTop;
+    const firstVisibleRow = playback ? null : [...notation.children].find((row) => row.getBoundingClientRect().bottom > top);
+    const firstBar = firstVisibleRow?.querySelector("[data-measure]");
+    const rowTop = firstVisibleRow?.getBoundingClientRect().top;
+    scoreZoom = next;
+    writePreference(scoreZoomPreference, next);
+    updateButtons();
+    renderNotation();
+    if (firstBar) {
+      const row = notation.children[playbackLayout[Number(firstBar.dataset.measure)].row];
+      notation.scrollTop += row.getBoundingClientRect().top - rowTop;
+    }
+  }
+  decrease.onclick = () => setZoom(scoreZoom - scoreZoomStep);
+  reset.onclick = () => setZoom(100);
+  increase.onclick = () => setZoom(scoreZoom + scoreZoomStep);
+  updateButtons();
+}
 
 function setupScoreHeight() {
   const notation = $("notation");
@@ -3274,6 +3313,7 @@ syncTools();
 refresh();
 setupVolume();
 setupSwingPicker();
+setupScoreZoom();
 setupScoreHeight();
 setupScoreSharing();
 setupScoreRecognition();

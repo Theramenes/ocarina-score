@@ -123,6 +123,12 @@ main { max-width: 1440px; width: calc(100% - 88px); margin: 0 auto; padding: 24p
 .card { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 2px 4px #423c2010; }
 .card h2 { font-size: 16px; font-weight: 700; letter-spacing: .02em; }
 .score-top, .input-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 17px; }
+.score-top { flex-wrap: wrap; }
+.score-view-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; margin-inline-start: auto; }
+.score-zoom { display: flex; flex: none; border: 1px solid var(--line); border-radius: 8px; color: var(--green-dark); background: var(--paper); }
+.score-zoom button { min-width: 32px; min-height: 32px; border-radius: 6px; font-size: 16px; font-weight: 700; }
+.score-zoom button:not(:disabled):hover { background: var(--mint); }
+#score-zoom-reset { min-width: 50px; font-size: 12px; font-variant-numeric: tabular-nums; }
 .score-heading, .input-heading { display: flex; align-items: center; gap: 9px; }
 .score-heading span, .input-heading span, #position { font-size: 11px; font-weight: 600; color: var(--muted); white-space: nowrap; }
 .score-heading span, .input-heading span { border-left: 1px solid var(--line); padding-left: 9px; }
@@ -442,7 +448,6 @@ dialog::backdrop { background: #192b2166; }
   .sidebar { grid-template-columns: minmax(0, 1fr); }
   .sidebar > .inspector:not(.transpose) { order: -1; }
   .score-top, .input-top { padding-inline: 10px; }
-  .score-top { flex-wrap: wrap; }
   .transport { gap: 7px; padding-inline: 8px; }
   .input-body { display: grid; padding-inline: 8px; gap: 6px; }
   .piano { font-size: 10px; }
